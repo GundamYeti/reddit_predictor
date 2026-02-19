@@ -1,0 +1,20 @@
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Data outputs
+*.csv
+*.json
+!requirements.txt
+
+# OS
+.DS_Store
+Thumbs.db
