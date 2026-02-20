@@ -3,3 +3,4 @@ pandas
 nltk
 textblob
 python-dotenv
+google-generativeai
