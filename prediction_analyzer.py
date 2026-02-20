@@ -1,3 +1,18 @@
+"""
+PREDICTION ANALYZER (GEMINI-POWERED)
+====================================
+This script uses Google's Gemini AI to analyze raw Reddit data and extract
+verifiable predictions into a structured format.
+
+SETUP INSTRUCTIONS:
+1. Get a Gemini API Key: 
+   Visit https://aistudio.google.com/app/apikey and click "Create API key".
+2. Add your key to the .env file:
+   GEMINI_API_KEY=your_key_here
+3. Run this script:
+   python prediction_analyzer.py
+"""
+
 import os
 import pandas as pd
 import google.generativeai as genai
@@ -5,13 +20,18 @@ from dotenv import load_dotenv
 import json
 import time
 
-# Load credentials
+# Load credentials from .env
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 if not GEMINI_API_KEY:
-    print("WARNING: GEMINI_API_KEY not found in .env. Please add it to use this script.")
+    print("-" * 50)
+    print("CRITICAL ERROR: GEMINI_API_KEY NOT FOUND")
+    print("Please visit https://aistudio.google.com/app/apikey to get a key.")
+    print("Then add it to your .env file as: GEMINI_API_KEY=your_key")
+    print("-" * 50)
 else:
+    # Initialize the Gemini AI model
     genai.configure(api_key=GEMINI_API_KEY)
 
 class PredictionAnalyzer:
@@ -54,7 +74,7 @@ class PredictionAnalyzer:
         Reads a CSV of Reddit posts, analyzes them, and saves structured predictions.
         """
         if not os.path.exists(input_csv):
-            print(f"Error: {input_csv} not found.")
+            print(f"Error: {input_csv} not found. Please run the crawler first to generate data.")
             return
 
         df = pd.read_csv(input_csv)
@@ -65,7 +85,7 @@ class PredictionAnalyzer:
         for index, row in df.iterrows():
             print(f"Processing post {index + 1}/{len(df)}...")
             
-            # We'll analyze the 'Title' or 'Text' depending on what's available
+            # Combine Title and Text (if available) for better analysis
             text_to_analyze = row.get("Title", "")
             if "Text" in row and pd.notna(row["Text"]):
                 text_to_analyze += " " + str(row["Text"])
@@ -95,9 +115,9 @@ class PredictionAnalyzer:
             results_df.to_csv(output_csv, index=False)
             print(f"Successfully found {len(predictions_list)} predictions. Saved to {output_csv}")
         else:
-            print("No verifiable predictions found.")
+            print("No verifiable predictions found in the current dataset.")
 
 if __name__ == "__main__":
     analyzer = PredictionAnalyzer()
-    # Assuming 'reddit_data.csv' exists from the crawler
+    # Assuming 'reddit_data.csv' exists from the crawler or scraper script
     analyzer.process_csv()
