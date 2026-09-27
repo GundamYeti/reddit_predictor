@@ -10,10 +10,11 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Data outputs
+# Collected data, databases and outputs (can hold lots of Reddit text)
+data/
+*.db
 *.csv
-*.json
-!requirements.txt
+*.zst
 
 # OS
 .DS_Store

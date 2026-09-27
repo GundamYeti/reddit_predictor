@@ -38,8 +38,7 @@ def manual_spot_check(input_csv="analyzed_predictions.csv", output_csv="manual_r
         print("-" * 20)
         
         # Collect manual ratings
-        print("
---- YOUR REVIEW ---")
+        print("\n--- YOUR REVIEW ---")
         try:
             truth = input("How TRUE did this turn out to be? (0=False, 1=True, p=Partial, skip=Skip): ")
             if truth.lower() == 'skip':
@@ -65,16 +64,13 @@ def manual_spot_check(input_csv="analyzed_predictions.csv", output_csv="manual_r
             # Save progress incrementally
             pd.DataFrame(manual_reviews).to_csv(output_csv, index=False)
             
-            print(f"
-Saved! Moving to next prediction...")
+            print(f"\nSaved! Moving to next prediction...")
             
         except KeyboardInterrupt:
-            print("
-Exiting and saving current progress...")
+            print("\nExiting and saving current progress...")
             break
 
-    print(f"
-Manual spot check complete. All reviews saved to {output_csv}")
+    print(f"\nManual spot check complete. All reviews saved to {output_csv}")
 
 if __name__ == "__main__":
     manual_spot_check()

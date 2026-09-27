@@ -1,6 +1,4 @@
-praw
-pandas
-nltk
-textblob
-python-dotenv
-google-generativeai
+# The core tool uses only the Python standard library (3.10+).
+# Optional extras:
+anthropic>=1.0    # for --llm claude
+zstandard         # for reading .zst Reddit archive dumps
