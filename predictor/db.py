@@ -65,14 +65,26 @@ def connect(path=DEFAULT_DB):
     return conn
 
 
-def insert_comments(conn, comments, source):
-    """Insert normalized comment dicts; returns how many were new."""
+def insert_comments(conn, comments, source, batch=50):
+    """Insert normalized comment dicts, committing every `batch` so a crash
+    part-way through a long download keeps what it already fetched.
+    Returns how many were new."""
     before = conn.total_changes
+    pending = []
+    for c in comments:
+        pending.append({**c, "source": source})
+        if len(pending) >= batch:
+            _insert(conn, pending)
+            pending = []
+    _insert(conn, pending)
+    return conn.total_changes - before
+
+
+def _insert(conn, rows):
     conn.executemany(
         """INSERT OR IGNORE INTO comments
            (id, author, subreddit, body, created_utc, score, link_id, parent_id, permalink, source)
            VALUES (:id, :author, :subreddit, :body, :created_utc, :score, :link_id, :parent_id, :permalink, :source)""",
-        ({**c, "source": source} for c in comments),
+        rows,
     )
     conn.commit()
-    return conn.total_changes - before

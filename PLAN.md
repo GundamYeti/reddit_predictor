@@ -31,13 +31,13 @@ Done:
 Tested so far:
 - Local phi3:mini on 5 synthetic comments: 4 of 5 correct (it caught the sarcasm but missed "definitely staying in the race, mark my words"), **70-90 s per comment** on the laptop.
 - Claude backend: request format checked against a local stand-in server. **Not yet run against the real API** (no key on this machine).
-- Arctic Shift API: code written, but **the service returned HTTP 500 on every request** all night, so it hasn't pulled real data yet.
+- Arctic Shift API: was down (HTTP 500) overnight, back 2026-09-27. Its keyword search times out on ranges longer than about an hour, so the collector walks one day at a time, splits any window that times out, and `--per-day` spreads samples evenly across each day.
 
 ## Next steps
 
-### 1. Get real data (blocked)
-- Retry Arctic Shift: `python -m predictor collect arctic -r politics --after 2024-07-01 --before 2024-07-02 --limit 50`
-- If it stays down: download the r/politics comments file from the per-subreddit Reddit dumps on Academic Torrents (search "reddit subreddits" there; check the date range covers what you need) and use `collect file`. There are 206 GB free, which is enough.
+### 1. Get real data
+- Arctic Shift works again (see the README walkthrough).
+- If it goes down again: download the r/politics comments file from the per-subreddit Reddit dumps on Academic Torrents (search "reddit subreddits" there; check the date range covers what you need) and use `collect file`. There are 206 GB free, which is enough.
 
 ### 2. First real question, end to end
 Good first question, since it's high-volume, had a clear resolution, and ran for weeks of loud argument: **"Will Biden withdraw from the 2024 race before the DNC?"** (debate 2024-06-27, withdrawal 2024-07-21). Collect about 500 comments with keywords, tag them, review them, resolve YES, look at the leaderboard.

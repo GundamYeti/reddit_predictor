@@ -61,7 +61,8 @@ def cmd_collect_arctic(conn, a):
     for sub in a.subreddit:
         print(f"Fetching r/{sub} {a.after} to {a.before}" + (f" matching {a.query!r}" if a.query else "") + "...")
         added = db.insert_comments(
-            conn, sources.arctic_shift(sub, date(a.after), date(a.before), a.query, a.limit), "arctic_shift")
+            conn, sources.arctic_shift(sub, date(a.after), date(a.before), a.query, a.limit, a.per_day),
+            "arctic_shift")
         print(f"  {added} new comments")
         total += added
     print(f"Added {total} comments.")
@@ -142,6 +143,7 @@ def main(argv=None):
     s.add_argument("--before", required=True, help="YYYY-MM-DD")
     s.add_argument("--query", help="only comments containing these words (server-side search)")
     s.add_argument("--limit", type=int, help="stop after this many comments per subreddit")
+    s.add_argument("--per-day", type=int, help="at most this many comments per day, to spread a sample out")
     s.set_defaults(fn=cmd_collect_arctic)
     s = c.add_parser("file", help="from a .zst dump or .jsonl file")
     s.add_argument("path")

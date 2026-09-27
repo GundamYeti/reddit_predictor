@@ -50,7 +50,10 @@ $P question add "Will Joe Biden withdraw from the 2024 race before the Democrati
     --keywords "drop out,dropping out,step aside,withdraw,replace biden,staying in"
 
 # 2. Collect comments from that window.
-$P collect arctic -r politics -r PoliticalDiscussion --after 2024-06-27 --before 2024-07-21 --query "drop out"
+#    --query searches comment text; --per-day spreads the sample evenly over each day.
+#    Run it once per search term to catch both sides of the argument.
+$P collect arctic -r politics --after 2024-06-27 --before 2024-07-21 --query "drop out" --per-day 6
+$P collect arctic -r politics --after 2024-06-27 --before 2024-07-21 --query "stay in" --per-day 2
 #    ...or from a downloaded archive file:
 $P collect file politics_comments.zst -r politics --after 2024-06-27 --before 2024-07-21 --keywords "drop out,step aside"
 
