@@ -2,9 +2,10 @@
 
 import argparse
 import calendar
+import sys
 import time
 
-from . import db, extract, llm, review, score, sources
+from . import db, extract, llm, pilot, review, score, sources
 
 
 def date(s):
@@ -62,7 +63,7 @@ def cmd_collect_arctic(conn, a):
         print(f"Fetching r/{sub} {a.after} to {a.before}" + (f" matching {a.query!r}" if a.query else "") + "...")
         added = db.insert_comments(
             conn, sources.arctic_shift(sub, date(a.after), date(a.before), a.query, a.limit, a.per_day),
-            "arctic_shift")
+            a.tag or "arctic_shift")
         print(f"  {added} new comments")
         total += added
     print(f"Added {total} comments.")
@@ -96,6 +97,18 @@ def cmd_scores(conn, a):
 
 def cmd_export(conn, a):
     print(f"Wrote scores for {score.export(conn, a.path, a.include_unreviewed)} users to {a.path}.")
+
+
+def cmd_pilot_extract(conn, a):
+    pilot.extract(conn, llm.get_backend(a.llm, a.model), a.tag, a.limit)
+
+
+def cmd_pilot_label(conn, a):
+    pilot.label(conn, a.tag, a.random)
+
+
+def cmd_pilot_report(conn, a):
+    pilot.report(conn, a.tag, a.extractor, a.random)
 
 
 def cmd_status(conn, a):
@@ -144,6 +157,7 @@ def main(argv=None):
     s.add_argument("--query", help="only comments containing these words (server-side search)")
     s.add_argument("--limit", type=int, help="stop after this many comments per subreddit")
     s.add_argument("--per-day", type=int, help="at most this many comments per day, to spread a sample out")
+    s.add_argument("--tag", help="label these comments as a named sample, e.g. pilot1 (default: arctic_shift)")
     s.set_defaults(fn=cmd_collect_arctic)
     s = c.add_parser("file", help="from a .zst dump or .jsonl file")
     s.add_argument("path")
@@ -175,9 +189,28 @@ def main(argv=None):
     s.add_argument("--include-unreviewed", action="store_true")
     s.set_defaults(fn=cmd_export)
 
+    pl = sub.add_parser("pilot", help="discover forecasts without a preset question (see docs/research-review.md)")
+    pl = pl.add_subparsers(dest="action", required=True)
+    s = pl.add_parser("extract", help="have a model list the forecasts in each sampled comment")
+    s.add_argument("--tag", default="pilot1", help="which collected sample (default %(default)s)")
+    s.add_argument("--limit", type=int, help="scan at most this many comments (try 50 first)")
+    s.add_argument("--llm", choices=["ollama", "claude"], help="default: $PREDICTOR_LLM or ollama")
+    s.add_argument("--model", help="override the backend's default model")
+    s.set_defaults(fn=cmd_pilot_extract)
+    s = pl.add_parser("label", help="label comments by hand, without seeing the model's answers")
+    s.add_argument("--tag", default="pilot1")
+    s.add_argument("--random", type=int, default=100, help="size of the random slice to label (default %(default)s)")
+    s.set_defaults(fn=cmd_pilot_label)
+    s = pl.add_parser("report", help="base rate, model vs. you, hedge phrases, what people predict")
+    s.add_argument("--tag", default="pilot1")
+    s.add_argument("--extractor", help="which model's results, e.g. claude:claude-opus-5 (default: latest)")
+    s.add_argument("--random", type=int, default=100)
+    s.set_defaults(fn=cmd_pilot_report)
+
     sub.add_parser("status", help="counts of everything").set_defaults(fn=cmd_status)
 
     a = p.parse_args(argv)
+    sys.stdout.reconfigure(line_buffering=True)  # show progress promptly when logged to a file
     conn = db.connect(a.db)
     try:
         a.fn(conn, a)

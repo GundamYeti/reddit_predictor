@@ -33,7 +33,16 @@ Tested so far:
 - Claude backend: request format checked against a local stand-in server. **Not yet run against the real API** (no key on this machine).
 - Arctic Shift API: was down (HTTP 500) overnight, back 2026-09-27. Its keyword search times out on ranges longer than about an hour, so the collector walks one day at a time, splits any window that times out, and `--per-day` spreads samples evenly across each day.
 
-## Next steps
+## Change of direction (2026-09-28)
+
+The first real run (20 comments, question-first) found only 1 real forecast, and phi3:mini
+confused "he should drop out" with "he will". After a literature review
+([docs/research-review.md](docs/research-review.md)) the plan is now **discovery first**:
+find forecasts in unfiltered comments, group them into recurring claims, and turn the
+popular ones into questions. `python -m predictor pilot ...` is step 1 of that. The
+question-first steps below still apply once questions come out of the pilot.
+
+## Next steps (question-first; see the change of direction above)
 
 ### 1. Get real data
 - Arctic Shift works again (see the README walkthrough).

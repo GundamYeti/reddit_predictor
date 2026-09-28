@@ -74,6 +74,27 @@ $P status          # counts of everything
 $P question list   # your questions and progress
 ```
 
+### Discovery pilot: what do people predict on their own?
+
+Instead of starting from a question, scan an unfiltered sample for any forecast. See
+[docs/research-review.md](docs/research-review.md) for the reasoning.
+
+```bash
+# An unfiltered sample, spread evenly over the period, labeled pilot1.
+$P collect arctic -r politics --after 2024-06-27 --before 2024-07-21 --per-day 21 --tag pilot1
+
+# A model lists every forecast: claim, direction, deadline, exact hedge phrase,
+# conditional?, sarcastic? Try 50 first and check the cost it prints.
+$P pilot extract --llm claude --limit 50
+
+# Label comments yourself without seeing the model's answers: a fixed random 100
+# plus everything the model flagged, shuffled together. f / c / n / u.
+$P pilot label
+
+# How common forecasts are, model vs. you, hedge phrases, and what people predicted.
+$P pilot report
+```
+
 Everything lives in `data/predictor.db` (SQLite; set `--db` or `PREDICTOR_DB` to change it).
 
 ## Settings

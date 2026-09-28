@@ -52,6 +52,42 @@ CREATE TABLE IF NOT EXISTS predictions (
     created_at  INTEGER NOT NULL DEFAULT (unixepoch()),
     PRIMARY KEY (comment_id, question_id)
 );
+
+-- Discovery (see pilot.py): forecasts found without a preset question.
+-- scans records every comment a model has read, including ones with no forecast.
+CREATE TABLE IF NOT EXISTS scans (
+    comment_id  TEXT NOT NULL REFERENCES comments(id),
+    extractor   TEXT NOT NULL,
+    n_forecasts INTEGER NOT NULL,
+    note        TEXT NOT NULL DEFAULT '',
+    tokens_in   INTEGER NOT NULL DEFAULT 0,
+    tokens_out  INTEGER NOT NULL DEFAULT 0,
+    created_at  INTEGER NOT NULL DEFAULT (unixepoch()),
+    PRIMARY KEY (comment_id, extractor)
+);
+
+CREATE TABLE IF NOT EXISTS forecasts (
+    id           INTEGER PRIMARY KEY,
+    comment_id   TEXT NOT NULL REFERENCES comments(id),
+    extractor    TEXT NOT NULL,
+    proposition  TEXT NOT NULL,     -- the event, stated positively: "Biden withdraws from the 2024 race"
+    direction    TEXT NOT NULL CHECK (direction IN ('happens', 'does_not_happen')),
+    deadline     TEXT NOT NULL DEFAULT '',
+    hedge_phrase TEXT NOT NULL DEFAULT '',  -- exact certainty words; '' = plain assertion
+    condition    TEXT NOT NULL DEFAULT '',  -- '' unless "if A, then B"
+    sarcastic    INTEGER NOT NULL DEFAULT 0,
+    quote        TEXT NOT NULL DEFAULT '',
+    created_at   INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE INDEX IF NOT EXISTS forecasts_comment ON forecasts(comment_id);
+
+-- Your hand labels: the answer key the model is measured against.
+CREATE TABLE IF NOT EXISTS labels (
+    comment_id  TEXT PRIMARY KEY REFERENCES comments(id),
+    label       TEXT NOT NULL CHECK (label IN ('forecast', 'conditional', 'not', 'unsure')),
+    note        TEXT NOT NULL DEFAULT '',
+    labeled_at  INTEGER NOT NULL DEFAULT (unixepoch())
+);
 """
 
 
