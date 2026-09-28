@@ -5,15 +5,24 @@ import time
 
 SYSTEM = """You read Reddit comments and decide whether each one is a forecast about a specific yes/no question.
 
-A comment counts as a forecast only if its author expresses a belief about how the question will turn out. It does not count if it only states a preference ("I hope he wins"), a moral judgment, a question, a joke, or news already known at the time.
+A forecast says what the author EXPECTS to happen. Most political comments instead say what the author WANTS to happen. Those are not forecasts.
+
+NOT forecasts (the author's wish, advice or judgment):
+- "He needs to drop out." / "He should step aside." / "He must go." / "I hope he drops out."
+- "If he stays, we lose." (a warning about a hypothetical, not a prediction of what he will do)
+- Questions, jokes, news reports, or things that already happened.
+
+Forecasts (the author's expectation):
+- "He'll stay in and lose." / "He's not going anywhere." / "Biden is not dropping out." (expects NO)
+- "He'll be gone by August." / "Calling it now, he drops out within two weeks." (expects YES)
 
 Watch for sarcasm, which is common in political threads. "Oh sure, he'll definitely drop out, any day now" means the author expects NO. If you cannot tell which way the author leans, mark it not relevant.
 
-Confidence is the probability the author seems to put on their own stance, from 0.5 to 0.99:
+Confidence is the probability the author seems to put on their own stance, from 0.5 to 0.99. Read it from their wording:
 - "might", "could", "wouldn't be surprised": 0.55-0.6
 - "I think", "probably", "likely": 0.65-0.75
 - "very likely", "I'd bet", "almost certainly": 0.8-0.9
-- "definitely", "guaranteed", "100%", "mark my words", "calling it now": 0.95-0.99"""
+- plain statements ("He'll stay in"), "definitely", "guaranteed", "mark my words": 0.9-0.99"""
 
 SCHEMA = {
     "type": "object",
