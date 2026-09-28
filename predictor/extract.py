@@ -37,7 +37,7 @@ How it resolves: {question['criteria'] or '(not specified)'}
 
 Comment posted {when} in r/{comment['subreddit']}:
 <comment>
-{comment['body'][:4000]}
+{comment['body'][:2500]}
 </comment>
 
 Return JSON:
@@ -107,4 +107,8 @@ def run(conn, backend, question, limit=None, out=sys.stdout):
         tag = f"{result['stance'].upper()} @ {result['confidence']:.2f}" if result["relevant"] else "not a forecast"
         print(f"  [{i}/{len(rows)}] u/{c['author']}: {tag} ({time.monotonic() - start:.1f}s)", file=out)
     print(f"Done: {found} forecasts found, {failed} failed (failed ones are retried next run).", file=out)
+    cost = getattr(backend, "cost", lambda: None)()
+    if cost is not None:
+        print(f"Estimated cost: ${cost:.2f} for {len(rows) - failed} comments "
+              f"(${cost / max(1, len(rows) - failed) * 1000:.2f} per 1,000).", file=out)
     return found, failed
