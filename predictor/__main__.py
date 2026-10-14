@@ -203,7 +203,7 @@ def main(argv=None):
     s.set_defaults(fn=cmd_pilot_label)
     s = pl.add_parser("report", help="base rate, model vs. you, hedge phrases, what people predict")
     s.add_argument("--tag", default="pilot1")
-    s.add_argument("--extractor", help="which model's results, e.g. claude:claude-opus-5 (default: latest)")
+    s.add_argument("--extractor", help="which model's results, e.g. claude:claude-opus-5-5 (default: latest)")
     s.add_argument("--random", type=int, default=100)
     s.set_defaults(fn=cmd_pilot_report)
 

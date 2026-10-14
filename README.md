@@ -106,7 +106,7 @@ Everything lives in `data/predictor.db` (SQLite; set `--db` or `PREDICTOR_DB` to
 | `PREDICTOR_OLLAMA_MODEL` | `phi3:mini` | local model |
 | `PREDICTOR_OLLAMA_URL` | `http://localhost:11434` | Ollama server |
 | `PREDICTOR_OLLAMA_TIMEOUT` | `300` | seconds per comment |
-| `PREDICTOR_CLAUDE_MODEL` | `claude-opus-5` | Claude model |
+| `PREDICTOR_CLAUDE_MODEL` | `claude-opus-5-5` | Claude model |
 | `PREDICTOR_CLAUDE_EFFORT` | `low` | `low` / `medium` / `high`: more is slower and costs more |
 
 ## Tests

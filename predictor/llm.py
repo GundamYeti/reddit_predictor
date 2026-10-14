@@ -41,7 +41,8 @@ class OllamaBackend:
 
 
 # Dollars per million tokens (input, output), for the running cost estimate.
-PRICES = {"claude-opus-5": (5.0, 25.0), "claude-sonnet-5": (2.0, 10.0), "claude-haiku-4-5": (1.0, 5.0)}
+PRICES = {"claude-opus-5-5": (4.0, 20.0), "claude-opus-5": (5.0, 25.0), "claude-sonnet-5-5": (2.0, 10.0),
+          "claude-sonnet-5": (2.0, 10.0), "claude-haiku-4-5": (1.0, 5.0)}
 
 
 class ClaudeBackend:
@@ -51,7 +52,7 @@ class ClaudeBackend:
         except ImportError:
             raise SystemExit("The claude backend needs the anthropic package: pip install anthropic")
         self.client = anthropic.Anthropic()
-        self.model = model or os.environ.get("PREDICTOR_CLAUDE_MODEL", "claude-opus-5")
+        self.model = model or os.environ.get("PREDICTOR_CLAUDE_MODEL", "claude-opus-5-5")
         self.name = f"claude:{self.model}"
         self.input_tokens = self.output_tokens = 0
 
