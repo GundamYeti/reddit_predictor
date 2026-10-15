@@ -10,7 +10,7 @@ SUBS = sys.argv[1].split(",")
 import calendar, os
 # The week sampled: RESEARCH_WEEK=YYYY-MM-DD (UTC), default the political samples' 2024-07-08.
 START = calendar.timegm(time.strptime(os.environ.get("RESEARCH_WEEK", "2024-07-08"), "%Y-%m-%d"))
-DAYS = 7
+DAYS = int(os.environ.get("RESEARCH_DAYS", "7"))  # how many days from RESEARCH_WEEK
 SKIP = {"[deleted]", "AutoModerator"}
 
 

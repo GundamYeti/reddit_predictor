@@ -9,7 +9,7 @@ UA = "reddit_predictor/0.2 (research; github.com/GundamYeti/reddit_predictor)"
 import calendar, os
 # The week sampled: RESEARCH_WEEK=YYYY-MM-DD (UTC), default the political samples' 2024-07-08.
 START = calendar.timegm(time.strptime(os.environ.get("RESEARCH_WEEK", "2024-07-08"), "%Y-%m-%d"))
-END = START + 7 * 86400
+END = START + int(os.environ.get("RESEARCH_DAYS", "7")) * 86400  # RESEARCH_DAYS long
 TOP = 15
 
 # The broad prefilter: kept 37% of r/politics comments and 74 of 76 with a forecast.

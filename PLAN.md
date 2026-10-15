@@ -149,6 +149,23 @@ Implications:
 - Drop unresolvable forecasts and counterfactuals early, before spending money scoring them.
 - Start scoring on gaming, box office and sports: fast, crisp outcomes test the machinery without political judgment calls.
 
+### Gender-politics subreddits (research only, 2026-10-15, $1.07)
+r/Feminism, r/TwoXChromosomes and r/MensRights: 100 filtered comments each from the 15 heaviest commenters, Oct 28 - Nov 3, 2024 (the week before the election, when the gender gap and abortion were big campaign issues). r/TheRedPill is quarantined and nearly dead (101 comments that week from 53 people), so its sample spans the five weeks before the election instead. These are for curiosity about accuracy, **not for the feed**.
+
+| | Forecasts per 100 filtered comments | Crisply resolvable | Hard to resolve or unresolvable |
+|---|---|---|---|
+| r/TwoXChromosomes | 14 | 1 | 12 of 14 |
+| r/Feminism | 7 | 0 | 6 of 7 |
+| r/TheRedPill | 6 | 0 | 6 of 6 |
+| r/MensRights | 5 | 1 | 4 of 5 |
+| *for comparison: r/politics* | *28* | | |
+| *r/Hasan_Piker* | *54* | | |
+
+- **Their accuracy can't really be measured: they barely make checkable predictions.** These are discussion and support communities. Most of their few forecasts are about someone's personal life ("she'll make an excuse not to come back tomorrow", "therapy won't change your husband"), the subreddit itself (moderator bans), or sweeping futures ("World War 3 takes place", "harvested personal data will be used against people").
+- **The two scorable ones were both right:** r/TwoXChromosomes, "Texas won't flip to Democrats in 2024" ("I'm not holding my breath"); r/MensRights, "Trump might win the 2024 election" (only a weak "might").
+- Their members would almost never get a track record, so for communities like these a reasoning-quality signal is the only kind of score possible.
+- The locked categories from the main run have no "personal life" topic, so personal predictions were forced into the nearest topic; another reason to revise the categories before locking them.
+
 ### Informal accuracy check (calibration samples, Jul 8-14, 2024)
 Clean right/wrong calls by Claude on the resolvable forecasts only, ignoring confidence and crowd comparison: r/Hasan_Piker 14/16, r/Destiny 8/9, r/politics 6/8, r/neoliberal 6/10, r/socialism 3/4, r/Conservative 2/4, r/LateStageCapitalism 3/3. Mostly measures one question (who saw the Biden withdrawal coming that week); 3-16 forecasts per subreddit is far too few to rank anyone.
 
@@ -194,6 +211,10 @@ For the project: second-term predictions are a good question bank. There are man
 12. **Bluesky**, then other platforms. Each account is scored on its own; cross-platform identity matching is out of scope.
 
 ## Subreddits
+
+Two separate lists: subreddits studied for research (how communities predict and how accurate they are) and subreddits that feed your ranked front page. **Studying a subreddit does not put it in the feed.**
+
+**Research only, not for the feed** (you're curious about their accuracy, 2026-10-15): r/Feminism, r/TwoXChromosomes, r/MensRights, r/TheRedPill. Which of the others below end up in the feed is still your call; none are in it yet.
 
 **Now (political, across the spectrum):** r/politics, r/neoliberal, r/Destiny, r/Hasan_Piker, r/Conservative, r/LateStageCapitalism (replacing r/socialism, which is too small for track records: 4 people with 20+ comments in a week).
 
