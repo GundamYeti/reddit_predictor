@@ -1,6 +1,7 @@
 """SQLite storage: questions you write, comments collected from Reddit, and
 the predictions that link a comment to a question."""
 
+import calendar
 import os
 import sqlite3
 
@@ -84,6 +85,33 @@ CREATE TABLE IF NOT EXISTS forecasts (
 );
 CREATE INDEX IF NOT EXISTS forecasts_comment ON forecasts(comment_id);
 
+-- Batch API jobs (see batch.py). A batch is submitted, then collected up to 24 hours later.
+CREATE TABLE IF NOT EXISTS batches (
+    id           TEXT PRIMARY KEY,          -- the API's batch id
+    extractor    TEXT NOT NULL,
+    tag          TEXT NOT NULL,             -- which sample the comments came from
+    n_comments   INTEGER NOT NULL,
+    est_cost     REAL NOT NULL,             -- dollars, estimated at submit time
+    cost         REAL,                      -- dollars, from actual usage once collected
+    status       TEXT NOT NULL DEFAULT 'submitted' CHECK (status IN ('submitted', 'collected', 'canceled')),
+    created_at   INTEGER NOT NULL DEFAULT (unixepoch()),
+    collected_at INTEGER
+);
+CREATE TABLE IF NOT EXISTS batch_requests (
+    batch_id     TEXT NOT NULL REFERENCES batches(id),
+    custom_id    TEXT NOT NULL,
+    comment_ids  TEXT NOT NULL,             -- JSON list of the comments packed into this request
+    PRIMARY KEY (batch_id, custom_id)
+);
+
+-- Every paid model run, for the monthly budget.
+CREATE TABLE IF NOT EXISTS spend (
+    id      INTEGER PRIMARY KEY,
+    at      INTEGER NOT NULL DEFAULT (unixepoch()),
+    dollars REAL NOT NULL,
+    what    TEXT NOT NULL DEFAULT ''
+);
+
 -- Your hand labels: the answer key the model is measured against.
 CREATE TABLE IF NOT EXISTS labels (
     comment_id  TEXT PRIMARY KEY REFERENCES comments(id),
@@ -118,6 +146,19 @@ def _migrate(conn):
         if column not in {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}:
             conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
     conn.commit()
+
+
+def record_spend(conn, dollars, what=""):
+    conn.execute("INSERT INTO spend (dollars, what) VALUES (?, ?)", (dollars, what))
+    conn.commit()
+
+
+def month_spend(conn, now=None):
+    """Dollars recorded since the start of this calendar month (UTC)."""
+    import time
+    t = time.gmtime(now if now is not None else time.time())
+    start = int(calendar.timegm((t.tm_year, t.tm_mon, 1, 0, 0, 0)))
+    return conn.execute("SELECT COALESCE(SUM(dollars), 0) FROM spend WHERE at >= ?", (start,)).fetchone()[0]
 
 
 def insert_comments(conn, comments, source, batch=50):

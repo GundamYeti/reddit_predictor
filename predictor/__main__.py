@@ -5,7 +5,7 @@ import calendar
 import sys
 import time
 
-from . import db, extract, llm, pilot, review, score, sources
+from . import batch, db, extract, llm, pilot, review, score, sources
 
 
 def date(s):
@@ -115,6 +115,30 @@ def cmd_pilot_report(conn, a):
     pilot.report(conn, a.tag, a.extractor, a.random)
 
 
+def _client():
+    llm.load_dotenv()
+    import anthropic
+    return anthropic.Anthropic()
+
+
+def cmd_batch_submit(conn, a):
+    batch.submit(conn, _client(), a.tag, a.model, a.pack, a.limit)
+
+
+def cmd_batch_collect(conn, a):
+    batch.collect_all(conn, _client(), wait=a.wait)
+
+
+def cmd_spend(conn, a):
+    print(f"This month: ${db.month_spend(conn):.2f} of the ${batch.budget():.2f} budget "
+          f"(PREDICTOR_MONTHLY_BUDGET).")
+    for r in conn.execute("SELECT * FROM spend ORDER BY at DESC LIMIT ?", (a.last,)):
+        print(f"  {time.strftime('%Y-%m-%d %H:%M', time.localtime(r['at']))}  ${r['dollars']:>6.2f}  {r['what']}")
+    for r in conn.execute("SELECT * FROM batches WHERE status = 'submitted'"):
+        print(f"  waiting: batch {r['id']} ({r['n_comments']} comments, est. ${r['est_cost']:.2f}); "
+              f"run `batch collect`")
+
+
 def cmd_status(conn, a):
     n = conn.execute("""SELECT
         (SELECT COUNT(*) FROM comments) AS comments,
@@ -210,6 +234,22 @@ def main(argv=None):
     s.add_argument("--extractor", help="which model's results, e.g. claude:claude-opus-5-5 (default: latest)")
     s.add_argument("--random", type=int, default=100)
     s.set_defaults(fn=cmd_pilot_report)
+
+    bp = sub.add_parser("batch", help="scan comments through the half-price Batch API (results within 24 h)")
+    bsub = bp.add_subparsers(dest="batch_command", required=True)
+    s = bsub.add_parser("submit", help="send unscanned comments from a sample, within the monthly budget")
+    s.add_argument("--tag", required=True, help="which collected sample, e.g. pilot1")
+    s.add_argument("--model", default=batch.DEFAULT_MODEL)
+    s.add_argument("--pack", type=int, default=batch.DEFAULT_PACK, help="comments per request (default %(default)s)")
+    s.add_argument("--limit", type=int, help="send at most this many comments")
+    s.set_defaults(fn=cmd_batch_submit)
+    s = bsub.add_parser("collect", help="store the results of finished batches")
+    s.add_argument("--wait", action="store_true", help="keep checking every minute until all have finished")
+    s.set_defaults(fn=cmd_batch_collect)
+
+    s = sub.add_parser("spend", help="this month's model spending against the budget")
+    s.add_argument("--last", type=int, default=10, help="show this many recent entries")
+    s.set_defaults(fn=cmd_spend)
 
     sub.add_parser("status", help="counts of everything").set_defaults(fn=cmd_status)
 

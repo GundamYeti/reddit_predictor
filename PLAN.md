@@ -99,7 +99,9 @@ Each scan in the pilot sent ~1,370 tokens in and got ~90 back, and ~1,200 of the
 
 Where packed Sonnet and Opus disagree, it's mostly borderline cases both ways: Sonnet missed some real ones ("the idea of him stepping aside has been so unrealistic", "Texas is so red it won't matter") and added some weak ones ("it would be a great way to lose the black vote"). It also skipped 13 of 504 comments on the first pass (a rerun filled them in), so packed runs need a retry for skipped ids.
 
-**Choice for now: Sonnet 5.5, cached, ~20 comments per request, via Batch** (Batch isn't built yet). About $0.42 per 1,000 comments, so ~24,000 comments a month fits in $10. Revisit once your labels show whether its extra flags and misses are worse than Opus's.
+**Choice for now: Sonnet 5.5, cached, ~20 comments per request, via Batch.** Built 2026-10-15 (`python -m predictor batch submit | collect`, see README). First real batches: 214 comments for $0.11, i.e. **$0.40-0.60 per 1,000** depending on how forecast-heavy the comments are, so **~17,000-25,000 comments a month fit in $10**. Each batch finished in under 10 minutes. Listing the expected comment ids at the end of each request stopped the model skipping comments (14 of 100 skipped before, 0 of 114 after). Against Opus on the r/neoliberal and r/Destiny calibration samples, the batch results caught 90% and 97% of Opus's forecast comments, with 6 and 9 extra flags. Revisit once your labels show whether its extra flags and misses are worse than Opus's.
+
+**Budget guard.** Every paid run now records its cost in a `spend` table; `batch submit` refuses to send a batch whose estimate would push the calendar month past `PREDICTOR_MONTHLY_BUDGET` (default $10), and `python -m predictor spend` shows the month so far. The ledger started 2026-10-15 at $0: the ~$15 of research before it (pilot, calibration, comparisons) isn't counted. Open question for you: should one-time research count against the monthly $10?
 
 **A panel instead of everyone.** Commenting is concentrated, so a small panel covers a lot:
 
@@ -173,7 +175,7 @@ For the project: second-term predictions are a good question bank. There are man
 ### B. Make the funnel affordable
 4. ~~**Calibrate per subreddit.**~~ Done for the seven political subreddits (see Findings); repeat for each new one (~$0.75 each).
 5. ~~**Cut cost per comment.**~~ Done 2026-10-15: caching is on, and packed Sonnet 5.5 is the pick (see "What $10/month buys"). Re-check against your labels.
-6. **Build the panel funnel within $10/month.** Pick the panel (start with the top 25-50 per subreddit), phrase filter, the chosen model via Batch, 50 filtered comments per person per month, and a running monthly spend total that stops at the budget. Drop people who rarely forecast; keep rescanning those who do.
+6. **Build the panel funnel within $10/month.** (The Batch API path and budget guard it needs are built.) Pick the panel (start with the top 25-50 per subreddit), phrase filter, the chosen model via Batch, 50 filtered comments per person per month, and a running monthly spend total that stops at the budget. Drop people who rarely forecast; keep rescanning those who do.
 
 ### C. Ground truth at scale
 7. **Import resolved prediction-market questions** and match forecasts to them; your own questions cover the rest.
@@ -216,7 +218,8 @@ Sports and box office are worth doing early for a different reason: outcomes are
 - Terminal review queue; Brier scoring per user and subreddit (no-hindsight cutoff, one vote per user per question, small-sample adjustment); JSON export.
 - Discovery pilot: `pilot extract | label | report`.
 - Crowd-relative scoring, hedge-phrase confidence table, both-sides and conditional rules; prompt caching in the Claude backend.
-- Offline tests (34).
+- Batch API scanning with packed requests, a spend ledger and a monthly budget guard.
+- Offline tests (38).
 
 ## Things to keep in mind
 - **Reddit's terms:** keep collected data local and for personal use. Publishing per-user scores of real people is a much bigger step and deserves a closer look first.

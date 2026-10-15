@@ -98,6 +98,24 @@ $P pilot label
 $P pilot report
 ```
 
+### Batch scanning (half price, within a monthly budget)
+
+For real volume, send comments through the Batch API: about 20 comments per request with Sonnet 5.5,
+half price, results usually within the hour (at most 24 hours). Measured: $0.40-0.60 per 1,000 comments.
+
+```bash
+# Send every unscanned comment of a sample. Refused if the estimate would push this
+# month's spending over PREDICTOR_MONTHLY_BUDGET (default $10); use --limit to send fewer.
+$P batch submit --tag pilot1
+
+# Store the results once the batch has finished (--wait checks every minute until then).
+# Comments the model skipped or that failed are sent again by the next submit.
+$P batch collect --wait
+
+# This month's spending against the budget, and any batches still waiting.
+$P spend
+```
+
 Everything lives in `data/predictor.db` (SQLite; set `--db` or `PREDICTOR_DB` to change it).
 
 ## Settings
@@ -110,6 +128,7 @@ Everything lives in `data/predictor.db` (SQLite; set `--db` or `PREDICTOR_DB` to
 | `PREDICTOR_OLLAMA_URL` | `http://localhost:11434` | Ollama server |
 | `PREDICTOR_OLLAMA_TIMEOUT` | `300` | seconds per comment |
 | `PREDICTOR_CLAUDE_MODEL` | `claude-opus-5-5` | Claude model |
+| `PREDICTOR_MONTHLY_BUDGET` | `10` | dollars per calendar month that `batch submit` won't go past |
 | `PREDICTOR_CLAUDE_EFFORT` | `low` | `low` / `medium` / `high`: more is slower and costs more |
 
 ## Tests

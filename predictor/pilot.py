@@ -18,6 +18,8 @@ import sys
 import textwrap
 import time
 
+from . import db
+
 SYSTEM = """You find forecasts in Reddit comments.
 
 A forecast is the author's own expectation about a future event that could, at least in principle, be checked later: an election result, whether someone resigns, a bill passing, a court ruling, a price, a war ending.
@@ -91,6 +93,50 @@ def build_prompt(comment):
 List every forecast in this comment (usually none), plus a one-sentence note."""
 
 
+# Packed mode: several comments per request, so the fixed instructions are paid
+# for once per request instead of once per comment (see research/model_compare.py).
+PACKED_SYSTEM = SYSTEM + """
+
+You will get several comments at once, each with an id. Treat each comment on its own, as if it were the only one: never carry names or context from one comment to another. Return one entry per comment id, in any order, with an empty forecast list for comments that contain none."""
+
+PACKED_SCHEMA = {
+    "type": "object",
+    "properties": {"comments": {"type": "array", "items": {
+        "type": "object",
+        "properties": {"id": {"type": "string"},
+                       "forecasts": SCHEMA["properties"]["forecasts"],
+                       "note": {"type": "string"}},
+        "required": ["id", "forecasts", "note"], "additionalProperties": False}}},
+    "required": ["comments"], "additionalProperties": False}
+
+
+def packed_prompt(comments):
+    parts = []
+    for c in comments:
+        when = time.strftime("%Y-%m-%d", time.gmtime(c["created_utc"]))
+        parts.append(f'<comment id="{c["id"]}" posted="{when}" subreddit="r/{c["subreddit"]}">\n'
+                     f'{c["body"][:2500]}\n</comment>')
+    ids = ", ".join(c["id"] for c in comments)
+    return ("\n\n".join(parts) + f"\n\nReturn exactly {len(comments)} entries, one for each of these comment ids,"
+            f" even when a comment has no forecast: {ids}. For each, list every forecast (usually none),"
+            " plus a one-sentence note.")
+
+
+def store(conn, comment_id, extractor, result, tokens_in=0, tokens_out=0):
+    """Save one comment's extraction (its forecasts plus a scan record); returns the forecasts kept."""
+    items = [f for f in map(_clean, result.get("forecasts") or []) if f["proposition"] and f["direction"]]
+    conn.executemany(
+        """INSERT INTO forecasts (comment_id, extractor, proposition, direction, deadline,
+                                  hedge_phrase, condition, sarcastic, quote)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        [(comment_id, extractor, f["proposition"], f["direction"], f["deadline"],
+          f["hedge_phrase"], f["condition"], f["sarcastic"], f["quote"]) for f in items])
+    conn.execute(
+        "INSERT INTO scans (comment_id, extractor, n_forecasts, note, tokens_in, tokens_out) VALUES (?, ?, ?, ?, ?, ?)",
+        (comment_id, extractor, len(items), str(result.get("note") or "")[:500], tokens_in, tokens_out))
+    return items
+
+
 def _order(comment_id, salt=""):
     """A stable pseudo-random order, so 'the random 100' is the same every run."""
     return hashlib.md5((salt + comment_id).encode()).hexdigest()
@@ -129,23 +175,16 @@ def extract(conn, backend, tag, limit=None, out=sys.stdout):
             failed += 1
             print(f"  [{i}/{len(todo)}] {c['id']}: failed ({e})", file=out)
             continue
-        items = [f for f in map(_clean, result.get("forecasts") or []) if f["proposition"] and f["direction"]]
-        conn.executemany(
-            """INSERT INTO forecasts (comment_id, extractor, proposition, direction, deadline,
-                                      hedge_phrase, condition, sarcastic, quote)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            [(c["id"], backend.name, f["proposition"], f["direction"], f["deadline"],
-              f["hedge_phrase"], f["condition"], f["sarcastic"], f["quote"]) for f in items])
-        conn.execute(
-            "INSERT INTO scans (comment_id, extractor, n_forecasts, note, tokens_in, tokens_out) VALUES (?, ?, ?, ?, ?, ?)",
-            (c["id"], backend.name, len(items), str(result.get("note") or "")[:500],
-             getattr(backend, "input_tokens", 0) - before[0], getattr(backend, "output_tokens", 0) - before[1]))
+        items = store(conn, c["id"], backend.name, result,
+                      getattr(backend, "input_tokens", 0) - before[0], getattr(backend, "output_tokens", 0) - before[1])
         conn.commit()
         found += len(items)
         summary = "; ".join(f"{'' if f['direction'] == 'happens' else 'NOT '}{f['proposition']}" for f in items)
         print(f"  [{i}/{len(todo)}] {len(items)} forecast(s) ({time.monotonic() - start:.1f}s) {summary[:120]}", file=out)
     print(f"Done: {found} forecasts in {len(todo) - failed} comments, {failed} failed.", file=out)
     cost = getattr(backend, "cost", lambda: None)()
+    if cost:
+        db.record_spend(conn, cost, f"pilot extract {tag} with {backend.name}")
     if cost is not None and len(todo) > failed:
         print(f"Estimated cost: ${cost:.2f} (${cost / (len(todo) - failed) * 1000:.2f} per 1,000 comments).", file=out)
     return found, failed

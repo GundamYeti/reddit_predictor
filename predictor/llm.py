@@ -61,6 +61,46 @@ PRICES = {"claude-opus-5-5": (4.0, 20.0), "claude-opus-5": (5.0, 25.0), "claude-
           "claude-sonnet-5": (2.0, 10.0), "claude-haiku-4-5": (1.0, 5.0)}
 
 
+BATCH_DISCOUNT = 0.5  # the Batch API charges half price on all tokens
+
+
+def cost_of(model, input_tokens, output_tokens, cache_read=0, cache_write=0, batch=False):
+    """Dollars for one or more calls, or None for a model without a price."""
+    if model not in PRICES:
+        return None
+    inp, out = PRICES[model]
+    # Cache reads cost a tenth of normal input; writing the cache costs 1.25x.
+    dollars = (input_tokens * inp + output_tokens * out + cache_read * inp * 0.1 + cache_write * inp * 1.25) / 1e6
+    return dollars * (BATCH_DISCOUNT if batch else 1)
+
+
+def request_params(model, system, prompt, schema, max_tokens=8000):
+    """Messages API parameters for one structured-output call; shared with the Batch API."""
+    output_config = {"format": {"type": "json_schema", "schema": schema}}
+    if not model.startswith("claude-haiku"):  # Haiku 4.5 doesn't take an effort setting
+        # Low effort keeps per-comment cost down; raise it if tagging quality disappoints.
+        output_config["effort"] = os.environ.get("PREDICTOR_CLAUDE_EFFORT", "low")
+    return {
+        "model": model,
+        "max_tokens": max_tokens,
+        # The instructions are identical on every call, so cache them: later calls
+        # read them at a tenth of the price. (Haiku 4.5 needs 4,096+ tokens to cache,
+        # so for it this is a no-op.)
+        "system": [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
+        "messages": [{"role": "user", "content": prompt}],
+        "output_config": output_config,
+    }
+
+
+def message_json(message):
+    """The JSON answer in a Messages API response; raises if the model declined."""
+    if message.stop_reason == "refusal":
+        raise RuntimeError("model declined to classify this comment")
+    if message.stop_reason == "max_tokens":
+        raise RuntimeError("answer was cut off (max_tokens)")
+    return json.loads(next(b.text for b in message.content if b.type == "text"))
+
+
 class ClaudeBackend:
     def __init__(self, model=None):
         try:
@@ -73,34 +113,15 @@ class ClaudeBackend:
         self.input_tokens = self.output_tokens = 0
         self.cache_read_tokens = self.cache_write_tokens = 0
 
-    def _dollars(self, inp_tokens, out_tokens, read_tokens, write_tokens):
-        if self.model not in PRICES:
-            return None
-        inp, out = PRICES[self.model]
-        # Cache reads cost a tenth of normal input; writing the cache costs 1.25x.
-        return (inp_tokens * inp + out_tokens * out + read_tokens * inp * 0.1 + write_tokens * inp * 1.25) / 1e6
-
     def cost(self):
         """Estimated dollars spent so far this run, or None for an unknown model."""
-        return self._dollars(self.input_tokens, self.output_tokens, self.cache_read_tokens, self.cache_write_tokens)
+        return cost_of(self.model, self.input_tokens, self.output_tokens, self.cache_read_tokens,
+                       self.cache_write_tokens)
 
     def complete_json(self, system, prompt, schema):
         start = time.monotonic()
         try:
-            output_config = {"format": {"type": "json_schema", "schema": schema}}
-            if not self.model.startswith("claude-haiku"):  # Haiku 4.5 doesn't take an effort setting
-                # Low effort keeps per-comment cost down; raise it if tagging quality disappoints.
-                output_config["effort"] = os.environ.get("PREDICTOR_CLAUDE_EFFORT", "low")
-            response = self.client.messages.create(
-                model=self.model,
-                max_tokens=8000,
-                # The instructions are identical on every call, so cache them: later calls
-                # read them at a tenth of the price. (Haiku 4.5 needs 4,096+ tokens to cache,
-                # so for it this is a no-op.)
-                system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
-                messages=[{"role": "user", "content": prompt}],
-                output_config=output_config,
-            )
+            response = self.client.messages.create(**request_params(self.model, system, prompt, schema))
         except Exception as e:
             log_call("reddit_predictor", "claude", self.model, time.monotonic() - start,
                      ok=False, error=e, preview=prompt)
@@ -111,17 +132,14 @@ class ClaudeBackend:
         self.output_tokens += u.output_tokens
         self.cache_read_tokens += read
         self.cache_write_tokens += write
-        dollars = self._dollars(u.input_tokens, u.output_tokens, read, write)
+        dollars = cost_of(self.model, u.input_tokens, u.output_tokens, read, write)
         log_call("reddit_predictor", "claude", self.model, time.monotonic() - start, preview=prompt,
                  ok=response.stop_reason != "refusal",
                  error="refused" if response.stop_reason == "refusal" else None,
                  input_tokens=u.input_tokens, output_tokens=u.output_tokens,
                  cache_read_tokens=read or None, cache_write_tokens=write or None,
                  cost_usd=round(dollars, 5) if dollars is not None else None)
-        if response.stop_reason == "refusal":
-            raise RuntimeError("model declined to classify this comment")
-        text = next(b.text for b in response.content if b.type == "text")
-        return json.loads(text)
+        return message_json(response)
 
 
 def load_dotenv(path=".env"):
