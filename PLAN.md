@@ -85,17 +85,21 @@ What this means:
 - This was a busy news week (debate fallout, the July 13 assassination attempt), so typical weeks are probably lighter.
 
 ### What $10/month buys
-Each scan so far sent ~1,370 tokens in and got ~90 back, and most of the input is the same fixed instructions repeated for every comment. Estimated cost per filtered comment (only the first row is measured):
+Each scan in the pilot sent ~1,370 tokens in and got ~90 back, and ~1,200 of the input was the same fixed instructions repeated for every comment. Caching those instructions (cached input costs a tenth) and packing comments together cut the cost per comment several times over.
 
-| Setup | $/comment | Comments for $10 |
-|---|---|---|
-| Opus 5.5, one comment per request (the pilot, measured) | $0.0069 | ~1,450 |
-| Opus + cache the fixed instructions + Batch API | ~$0.0014 | ~7,300 |
-| Sonnet 5.5 + cache + Batch | ~$0.00075 | ~13,000 |
-| Sonnet 5.5 + Batch + ~20 comments per request | ~$0.0004 (rough guess) | ~25,000 |
-| Haiku 4.5 + Batch (its prompt is too short to cache) | ~$0.0009 | ~11,000 |
+**Measured 2026-10-15 on the 504 pilot comments** ([research/model_compare.py](research/model_compare.py), ~$1.80 total). "Catches" = of the 76 comments where Opus found a forecast, how many this setup also flagged. Opus is the reference, not the truth: your labels will settle who's right where they disagree.
 
-Caching (cached input costs ~10%) and Batch (half price) don't change results. Switching model or packing comments together might, so both need checking against Opus on the pilot first.
+| Setup | $ per 1,000 comments | Catches Opus's | Extra flags | Comments for $10 (with Batch, half price) |
+|---|---|---|---|---|
+| Opus 5.5, one per request, no cache (the pilot) | $6.90 | – | – | ~2,900 |
+| Opus 5.5 + cache (from a 3-call check) | ~$1.80 | – | – | ~11,000 |
+| Sonnet 5.5 + cache, one per request | $1.34 | 68/76 (89%) | 13 | ~15,000 |
+| **Sonnet 5.5 + cache, 20 per request** | **$0.83** | **69/76 (91%)** | 16 | **~24,000** |
+| Haiku 4.5, one per request (too short to cache) | $1.29 | 46/76 (61%) | 13 | rejected: misses too much, and no cheaper |
+
+Where packed Sonnet and Opus disagree, it's mostly borderline cases both ways: Sonnet missed some real ones ("the idea of him stepping aside has been so unrealistic", "Texas is so red it won't matter") and added some weak ones ("it would be a great way to lose the black vote"). It also skipped 13 of 504 comments on the first pass (a rerun filled them in), so packed runs need a retry for skipped ids.
+
+**Choice for now: Sonnet 5.5, cached, ~20 comments per request, via Batch** (Batch isn't built yet). About $0.42 per 1,000 comments, so ~24,000 comments a month fits in $10. Revisit once your labels show whether its extra flags and misses are worse than Opus's.
 
 **A panel instead of everyone.** Commenting is concentrated, so a small panel covers a lot:
 
@@ -164,11 +168,11 @@ For the project: second-term predictions are a good question bank. There are man
 ### A. Validate the core
 1. **Label the pilot (you).** `python -m predictor pilot label` (~110 comments), then `pilot report`. Measures model-vs-you agreement; decides whether the model can be trusted at scale.
 2. **Group forecasts into claims (build), and widen the questions.** Merge near-duplicates into "Biden withdraws before the DNC: 7 comments, 2 yes / 5 no"; drop context-less and unresolvable ones. Add sample windows before other resolved events so it isn't all one question: Harris's running-mate pick, 2024 Senate/House control, the first Fed rate cut (Sept 2024), tariffs and recession talk, Gaza and Ukraine ceasefires, the NYC mayoral race, the fall 2025 shutdown, plus non-political ones (console launches, game delays, box office).
-3. **Fix the scoring (build).** Crowd-relative score next to raw Brier, a measured confidence table instead of the hand-made one, a both-sides penalty, a decision on conditionals.
+3. ~~**Fix the scoring.**~~ Done 2026-10-15 for the question pipeline: confidence now comes from the author's exact hedge phrase via a measured table ([predictor/hedges.py](predictor/hedges.py); plain statements assumed 90%), a crowd-relative score ("vs crowd": your Brier minus the crowd's that week on the same question), a both-sides rule (YES and NO within 7 days: scored on the wrong side), and conditionals that count only once you mark the condition met (`m` / `x` in the review queue). Still to do: use the same rules for forecasts found by discovery once they're grouped into questions.
 
 ### B. Make the funnel affordable
 4. ~~**Calibrate per subreddit.**~~ Done for the seven political subreddits (see Findings); repeat for each new one (~$0.75 each).
-5. **Cut cost per comment (~$1-2 to test).** Cache the fixed instructions; then re-run the 504 pilot comments with Sonnet 5.5, Haiku 4.5, and ~20 comments per request, and compare each to Opus's results (and to your labels). Pick the cheapest setup that holds up.
+5. ~~**Cut cost per comment.**~~ Done 2026-10-15: caching is on, and packed Sonnet 5.5 is the pick (see "What $10/month buys"). Re-check against your labels.
 6. **Build the panel funnel within $10/month.** Pick the panel (start with the top 25-50 per subreddit), phrase filter, the chosen model via Batch, 50 filtered comments per person per month, and a running monthly spend total that stops at the budget. Drop people who rarely forecast; keep rescanning those who do.
 
 ### C. Ground truth at scale
@@ -211,7 +215,8 @@ Sports and box office are worth doing early for a different reason: outcomes are
 - Tagging with a local model (Ollama) or Claude (default `claude-opus-5-5`) using structured JSON output.
 - Terminal review queue; Brier scoring per user and subreddit (no-hindsight cutoff, one vote per user per question, small-sample adjustment); JSON export.
 - Discovery pilot: `pilot extract | label | report`.
-- Offline tests (20).
+- Crowd-relative scoring, hedge-phrase confidence table, both-sides and conditional rules; prompt caching in the Claude backend.
+- Offline tests (34).
 
 ## Things to keep in mind
 - **Reddit's terms:** keep collected data local and for personal use. Publishing per-user scores of real people is a much bigger step and deserves a closer look first.

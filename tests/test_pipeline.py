@@ -15,13 +15,19 @@ from predictor.__main__ import date
 FIXTURE = os.path.join(os.path.dirname(__file__), "fixtures", "sample_comments.jsonl")
 
 # What a well-behaved model would say about each synthetic comment.
+# Confidence comes from the hedge phrase via predictor.hedges: "definitely" 0.95,
+# "I think" 0.7, "Calling it now" 0.95, "" (stated flatly) 0.9.
 SCRIPTED = {
-    "c1": {"relevant": True, "stance": "no", "confidence": 0.97, "quote": "definitely staying", "rationale": ""},
-    "c2": {"relevant": True, "stance": "yes", "confidence": 0.7, "quote": "I think he drops out", "rationale": ""},
-    "c3": {"relevant": False, "stance": "none", "confidence": 0.5, "quote": "", "rationale": "a hope"},
-    "c4": {"relevant": True, "stance": "yes", "confidence": 0.96, "quote": "Calling it now", "rationale": ""},
-    "c8": {"relevant": True, "stance": "no", "confidence": 0.8, "quote": "any day now", "rationale": "sarcasm"},
-    "c9": {"relevant": False, "stance": "none", "confidence": 0.5, "quote": "", "rationale": "about pizza"},
+    "c1": {"relevant": True, "stance": "no", "hedge_phrase": "definitely", "condition": "",
+           "quote": "definitely staying", "rationale": ""},
+    "c2": {"relevant": True, "stance": "yes", "hedge_phrase": "I think", "condition": "",
+           "quote": "I think he drops out", "rationale": ""},
+    "c3": {"relevant": False, "stance": "none", "hedge_phrase": "", "condition": "", "quote": "", "rationale": "a hope"},
+    "c4": {"relevant": True, "stance": "yes", "hedge_phrase": "Calling it now", "condition": "",
+           "quote": "Calling it now", "rationale": ""},
+    "c8": {"relevant": True, "stance": "no", "hedge_phrase": "", "condition": "",
+           "quote": "any day now", "rationale": "sarcasm"},
+    "c9": {"relevant": False, "stance": "none", "hedge_phrase": "", "condition": "", "quote": "", "rationale": "about pizza"},
 }
 
 
@@ -73,11 +79,11 @@ class Pipeline(unittest.TestCase):
         # c9 ("drops prices") matches "drop": keywords are only a coarse filter.
         self.assertEqual(ids, {"c1", "c2", "c4", "c8", "c9"})
 
-    def test_clean_clamps_and_blanks_irrelevant(self):
-        self.assertEqual(extract.clean({"relevant": True, "stance": "yes", "confidence": 1.4})["confidence"], 0.99)
-        self.assertEqual(extract.clean({"relevant": True, "stance": "yes", "confidence": "x"})["confidence"], 0.6)
-        r = extract.clean({"relevant": True, "stance": "none", "confidence": 0.9, "quote": "q"})
-        self.assertEqual((r["relevant"], r["stance"], r["quote"]), (0, None, ""))
+    def test_clean_turns_hedges_into_confidence_and_blanks_irrelevant(self):
+        self.assertEqual(extract.clean({"relevant": True, "stance": "no", "hedge_phrase": "I doubt it"})["confidence"], 0.8)
+        self.assertEqual(extract.clean({"relevant": True, "stance": "yes", "hedge_phrase": ""})["confidence"], 0.9)
+        r = extract.clean({"relevant": True, "stance": "none", "hedge_phrase": "probably", "quote": "q", "condition": "x"})
+        self.assertEqual((r["relevant"], r["stance"], r["quote"], r["condition"]), (0, None, "", ""))
 
     def _extract(self):
         backend = FakeBackend()
@@ -100,13 +106,13 @@ class Pipeline(unittest.TestCase):
 
         users = {u["author"]: u for u in score.by_user(self.conn)}
         self.assertEqual(set(users), {"synthetic_alice", "synthetic_bob"})
-        # alice: said NO at 0.97 -> p_yes 0.03 -> (0.03 - 1)^2
-        self.assertAlmostEqual(users["synthetic_alice"]["brier"], 0.9409, places=4)
-        # bob: two comments averaged into one forecast, p_yes (0.7 + 0.96) / 2 = 0.83
+        # alice: said NO, "definitely" = 0.95 -> p_yes 0.05 -> (0.05 - 1)^2
+        self.assertAlmostEqual(users["synthetic_alice"]["brier"], 0.9025, places=4)
+        # bob: two comments averaged into one forecast, p_yes (0.7 + 0.95) / 2 = 0.825
         self.assertEqual(users["synthetic_bob"]["n"], 1)
-        self.assertAlmostEqual(users["synthetic_bob"]["brier"], (0.83 - 1) ** 2, places=4)
+        self.assertAlmostEqual(users["synthetic_bob"]["brier"], (0.825 - 1) ** 2, places=4)
         # shrinkage toward 0.25 with PRIOR_WEIGHT = 5
-        self.assertAlmostEqual(users["synthetic_bob"]["adjusted"], ((0.17 ** 2) + 5 * 0.25) / 6, places=4)
+        self.assertAlmostEqual(users["synthetic_bob"]["adjusted"], ((0.175 ** 2) + 5 * 0.25) / 6, places=4)
         self.assertEqual(score.by_user(self.conn)[0]["author"], "synthetic_bob")
 
     def test_unreviewed_only_counts_when_asked(self):

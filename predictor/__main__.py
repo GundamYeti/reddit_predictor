@@ -90,9 +90,13 @@ def cmd_scores(conn, a):
         print("No scores yet: you need at least one resolved question with accepted forecasts.")
         return
     key = "subreddit" if a.by == "subreddit" else "author"
-    print(f"{key:<28} {'n':>4} {'brier':>7} {'adjusted':>9}   (lower is better; 0.25 = coin flip)")
+    print(f"{key:<28} {'n':>4} {'brier':>7} {'adjusted':>9} {'vs crowd':>9} {'adj.':>7}")
     for r in rows[:a.top]:
-        print(f"{r[key]:<28} {r['n']:>4} {r['brier']:>7.3f} {r['adjusted']:>9.3f}")
+        peer = f"{r['peer']:>+9.3f} {r['peer_adjusted']:>+7.3f}" if r["peer"] is not None else f"{'-':>9} {'-':>7}"
+        flag = f"  ({r['both_sides']} both-sides)" if r["both_sides"] else ""
+        print(f"{r[key]:<28} {r['n']:>4} {r['brier']:>7.3f} {r['adjusted']:>9.3f} {peer}{flag}")
+    print("Lower is better. Brier: 0 perfect, 0.25 = coin flip. 'vs crowd': Brier minus the crowd's\n"
+          "Brier on the same questions that week; below 0 = beat the crowd. 'adj.' columns shrink small samples.")
 
 
 def cmd_export(conn, a):

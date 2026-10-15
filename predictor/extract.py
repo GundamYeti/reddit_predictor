@@ -1,7 +1,13 @@
-"""Tag comments against a question: is this a forecast, which side, how sure?"""
+"""Tag comments against a question: is this a forecast, which side, how sure?
+
+The model copies the author's exact hedge words; hedges.confidence() turns them
+into a probability from a measured table, instead of the model guessing a number.
+"""
 
 import sys
 import time
+
+from . import hedges
 
 SYSTEM = """You read Reddit comments and decide whether each one is a forecast about a specific yes/no question.
 
@@ -18,22 +24,21 @@ Forecasts (the author's expectation):
 
 Watch for sarcasm, which is common in political threads. "Oh sure, he'll definitely drop out, any day now" means the author expects NO. If you cannot tell which way the author leans, mark it not relevant.
 
-Confidence is the probability the author seems to put on their own stance, from 0.5 to 0.99. Read it from their wording:
-- "might", "could", "wouldn't be surprised": 0.55-0.6
-- "I think", "probably", "likely": 0.65-0.75
-- "very likely", "I'd bet", "almost certainly": 0.8-0.9
-- plain statements ("He'll stay in"), "definitely", "guaranteed", "mark my words": 0.9-0.99"""
+Copy the author's EXACT words that show how sure they are ("probably", "I doubt it", "no way", "mark my words", "might"). Use "" if they simply state it as fact. Don't put a number on it.
+
+Conditional forecasts whose "then" part answers the question ("If the polls stay this bad, he'll drop out") ARE forecasts: record the condition in plain words. ("If he stays, we lose" is not: its "then" part is about losing, not about the question.) Leave the condition "" for unconditional ones."""
 
 SCHEMA = {
     "type": "object",
     "properties": {
         "relevant": {"type": "boolean"},
         "stance": {"type": "string", "enum": ["yes", "no", "none"]},
-        "confidence": {"type": "number"},
+        "hedge_phrase": {"type": "string"},
+        "condition": {"type": "string"},
         "quote": {"type": "string"},
         "rationale": {"type": "string"},
     },
-    "required": ["relevant", "stance", "confidence", "quote", "rationale"],
+    "required": ["relevant", "stance", "hedge_phrase", "condition", "quote", "rationale"],
     "additionalProperties": False,
 }
 
@@ -52,7 +57,8 @@ Comment posted {when} in r/{comment['subreddit']}:
 Return JSON:
 - relevant: true only if the comment forecasts this question
 - stance: "yes" if the author expects the answer to be YES, "no" if they expect NO, "none" if not relevant
-- confidence: 0.5-0.99 (use 0.5 if not relevant)
+- hedge_phrase: the author's exact words showing how sure they are ("" if stated flatly or not relevant)
+- condition: for "if A, then B" forecasts, A in plain words; else ""
 - quote: the shortest exact excerpt that shows the forecast ("" if not relevant)
 - rationale: one short sentence"""
 
@@ -60,15 +66,13 @@ Return JSON:
 def clean(result):
     """Clamp model output into values the database accepts."""
     relevant = bool(result.get("relevant")) and result.get("stance") in ("yes", "no")
-    conf = result.get("confidence")
-    try:
-        conf = min(0.99, max(0.5, float(conf)))
-    except (TypeError, ValueError):
-        conf = 0.6
+    hedge = str(result.get("hedge_phrase") or "").strip()[:200]
     return {
         "relevant": int(relevant),
         "stance": result["stance"] if relevant else None,
-        "confidence": conf if relevant else None,
+        "confidence": hedges.confidence(hedge) if relevant else None,
+        "hedge_phrase": hedge if relevant else "",
+        "condition": str(result.get("condition") or "").strip()[:500] if relevant else "",
         "quote": (result.get("quote") or "")[:1000] if relevant else "",
         "rationale": (result.get("rationale") or "")[:500],
     }
@@ -106,14 +110,15 @@ def run(conn, backend, question, limit=None, out=sys.stdout):
             continue
         conn.execute(
             """INSERT INTO predictions (comment_id, question_id, relevant, stance, confidence,
-                                        quote, rationale, extractor)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                                        hedge_phrase, condition, quote, rationale, extractor)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (c["id"], question["id"], result["relevant"], result["stance"], result["confidence"],
-             result["quote"], result["rationale"], backend.name),
+             result["hedge_phrase"], result["condition"], result["quote"], result["rationale"], backend.name),
         )
         conn.commit()
         found += result["relevant"]
-        tag = f"{result['stance'].upper()} @ {result['confidence']:.2f}" if result["relevant"] else "not a forecast"
+        tag = (f"{result['stance'].upper()} @ {result['confidence']:.2f}"
+               + (f" if {result['condition']}" if result["condition"] else "")) if result["relevant"] else "not a forecast"
         print(f"  [{i}/{len(rows)}] u/{c['author']}: {tag} ({time.monotonic() - start:.1f}s)", file=out)
     print(f"Done: {found} forecasts found, {failed} failed (failed ones are retried next run).", file=out)
     cost = getattr(backend, "cost", lambda: None)()

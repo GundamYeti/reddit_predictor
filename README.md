@@ -16,12 +16,14 @@ See [PLAN.md](PLAN.md) for the design, status and roadmap.
  overlay (planned)  <-  export JSON  <-  Brier score per user  <-  you resolve the question YES/NO
 ```
 
-**Brier score:** for each forecast, `(p - outcome)^2`, where `p` is the probability the commenter effectively gave to YES and `outcome` is 1 or 0. Lower is better: 0 is perfect, 0.25 is what always saying 50/50 earns, 1 is confidently wrong. Confidence comes from wording ("might" is about 0.55, "probably" about 0.7, "mark my words" about 0.97).
+**Brier score:** for each forecast, `(p - outcome)^2`, where `p` is the probability the commenter effectively gave to YES and `outcome` is 1 or 0. Lower is better: 0 is perfect, 0.25 is what always saying 50/50 earns, 1 is confidently wrong. Confidence comes from the commenter's exact words, looked up in a table of measured readings (`predictor/hedges.py`): "might" is about 0.55, "probably" 0.7, "I doubt it" 0.8 for NO, "mark my words" 0.95, and a flat statement is assumed to be 0.9.
 
-Three rules keep it fair:
+Rules that keep it fair:
 - Only comments posted **before the question's close date** count, so no one gets credit for hindsight.
 - Several comments by one user on one question count **once** (their average).
-- The leaderboard sorts by an **adjusted** score that pulls small samples toward 0.25, so one lucky call doesn't top the board.
+- Saying **YES and NO within a week** on the same question is scored on whichever side was wrong.
+- **Conditional** forecasts ("if A, then B") count only once you mark in review that A happened.
+- The leaderboard ranks by **"vs crowd"**: your Brier minus the crowd's on the same question that week, so calling something everyone saw coming earns about nothing. Small samples are pulled toward zero (and the raw Brier toward 0.25), so one lucky call doesn't top the board.
 
 ## Setup
 
@@ -61,7 +63,8 @@ $P collect file politics_comments.zst -r politics --after 2024-06-27 --before 20
 $P extract 1 --limit 20
 $P extract 1 --llm claude
 
-# 4. Review what it tagged: a = accept, r = reject, f = flip YES/NO, 0.8 = set confidence.
+# 4. Review what it tagged: a = accept, r = reject, f = flip YES/NO, 0.8 = set confidence,
+#    m / x = the condition of an "if A, then B" forecast happened / didn't.
 $P review 1
 
 # 5. Record the outcome, then see the scores.

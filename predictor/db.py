@@ -43,6 +43,9 @@ CREATE TABLE IF NOT EXISTS predictions (
     relevant    INTEGER NOT NULL,           -- 1 if the comment forecasts this question
     stance      TEXT CHECK (stance IN ('yes', 'no')),
     confidence  REAL,                       -- probability the author gives their stance, 0.5-0.99
+    hedge_phrase TEXT NOT NULL DEFAULT '',  -- the author's exact certainty words; confidence comes from these
+    condition   TEXT NOT NULL DEFAULT '',   -- '' unless "if A, then B"; then A
+    condition_met INTEGER,                  -- for conditional forecasts: 1 = A happened (counts), 0 = it didn't, NULL = not decided
     quote       TEXT NOT NULL DEFAULT '',
     rationale   TEXT NOT NULL DEFAULT '',
     extractor   TEXT NOT NULL,              -- model name, or 'human'
@@ -98,7 +101,23 @@ def connect(path=DEFAULT_DB):
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript(SCHEMA)
+    _migrate(conn)
     return conn
+
+
+# Columns added after a database was first created: (table, column, definition).
+ADDED_COLUMNS = [
+    ("predictions", "hedge_phrase", "TEXT NOT NULL DEFAULT ''"),
+    ("predictions", "condition", "TEXT NOT NULL DEFAULT ''"),
+    ("predictions", "condition_met", "INTEGER"),
+]
+
+
+def _migrate(conn):
+    for table, column, definition in ADDED_COLUMNS:
+        if column not in {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+    conn.commit()
 
 
 def insert_comments(conn, comments, source, batch=50):
