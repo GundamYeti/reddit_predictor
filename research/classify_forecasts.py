@@ -4,6 +4,11 @@ Step 1: Claude reads every forecast found so far and proposes categories (nothin
 Step 2: Claude assigns each forecast to those categories, in chunks.
 Output: forecast_taxonomy.json and forecast_labels.json next to this script.
 Both are reused if present, so delete them to start over. Cost on 477 forecasts: $0.99.
+
+Only Opus 5.5's forecasts are used, so cheaper-model comparison runs don't add duplicates.
+
+Usage: python research/classify_forecasts.py           # classify (resumes)
+       python research/classify_forecasts.py --report  # breakdown per subreddit
 """
 import json, os, sqlite3, sys
 from pathlib import Path
@@ -18,7 +23,7 @@ conn = sqlite3.connect("data/predictor.db")
 rows = conn.execute("""
     SELECT f.id, cm.source, cm.subreddit, f.direction, f.proposition, f.hedge_phrase, f.condition, f.sarcastic
     FROM forecasts f JOIN comments cm ON cm.id = f.comment_id
-    WHERE f.extractor LIKE 'claude:%' ORDER BY f.id""").fetchall()
+    WHERE f.extractor = 'claude:claude-opus-5-5' ORDER BY f.id""").fetchall()
 
 
 def line(r):
@@ -32,6 +37,30 @@ def line(r):
         s += " | sarcastic"
     return s
 
+
+def report():
+    """Each dimension's categories, overall and per subreddit (the doomer sample on its own)."""
+    import collections
+    tax = json.loads((HERE / "forecast_taxonomy.json").read_text())
+    labels = json.loads((HERE / "forecast_labels.json").read_text())
+    group = {str(r[0]): ("doomer sample" if r[1].startswith("doom_") else "r/" + r[2]) for r in rows}
+    labels = {k: v for k, v in labels.items() if k in group}
+    sizes = collections.Counter(group[k] for k in labels)
+    groups = sorted(sizes, key=lambda g: -sizes[g])
+    print(f"{len(labels)} forecasts: " + ", ".join(f"{g} {sizes[g]}" for g in groups))
+    for d in tax["dimensions"]:
+        print(f"\n## {d['name']}")
+        print(f"{'':40} {'all':>5} " + " ".join(f"{g[:12]:>12}" for g in groups))
+        for c in d["categories"]:
+            hits = [k for k, l in labels.items() if l.get(d["id"]) == c["id"]]
+            per = collections.Counter(group[k] for k in hits)
+            print(f"{c['name'][:40]:40} {len(hits) / len(labels):>5.0%} "
+                  + " ".join(f"{per[g] / sizes[g]:>12.0%}" for g in groups))
+
+
+if "--report" in sys.argv:
+    report()
+    sys.exit()
 
 ALL = "\n".join(line(r) for r in rows)
 print(f"{len(rows)} forecasts", file=sys.stderr)
@@ -91,3 +120,6 @@ for i in range(0, len(todo), 60):
         labels[str(lab.pop("id"))] = lab
     lab_path.write_text(json.dumps(labels))
     print(f"labeled {len(labels)}/{len(rows)}, cost so far ${backend.cost():.2f}", file=sys.stderr)
+if backend.cost():
+    from predictor import db
+    db.record_spend(db.connect("data/predictor.db"), backend.cost(), "classify_forecasts")

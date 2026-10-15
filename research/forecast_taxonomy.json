@@ -2,22 +2,22 @@
  "dimensions": [
   {
    "id": "topic",
-   "name": "Subject area",
-   "why": "Shows what these communities forecast about; the data is dominated by the 2024 race but branches into governance, institutions, violence and non-US issues.",
+   "name": "Subject domain",
+   "why": "The forecasts cluster heavily around the 2024 US election, but distinct non-political domains (markets, entertainment, AI) differ sharply in how measurable they are.",
    "categories": [
     {
-     "id": "pres_outcome",
-     "name": "Presidential election outcome",
-     "definition": "Who wins or loses the 2024 (or later) presidential election, overall or in specific states.",
+     "id": "elec",
+     "name": "Election outcomes",
+     "definition": "Who wins a presidential, state, congressional or primary race, or by what margin.",
      "examples": [
       2,
-      355
+      356
      ]
     },
     {
-     "id": "nomination",
-     "name": "Nomination and candidacy",
-     "definition": "Whether Biden stays or withdraws, who becomes a nominee or running mate, and how parties choose candidates.",
+     "id": "nominee",
+     "name": "Biden candidacy & Democratic nomination",
+     "definition": "Whether Biden stays or withdraws and who becomes the Democratic nominee or ticket.",
      "examples": [
       13,
       24
@@ -25,160 +25,221 @@
     },
     {
      "id": "campaign",
-     "name": "Campaign dynamics",
-     "definition": "Polls, turnout, voter-bloc behavior, debates, gaffes and attacks during the campaign.",
+     "name": "Campaign dynamics & voter behavior",
+     "definition": "Polls, turnout, voter-bloc shifts, attack lines and media or partisan reactions during the campaign.",
      "examples": [
       177,
-      284
+      75
      ]
     },
     {
-     "id": "governance",
-     "name": "Post-election governance",
-     "definition": "What a winner, especially a second-term Trump, would do in office and what consequences follow.",
+     "id": "gov",
+     "name": "Governance, courts & policy",
+     "definition": "What officeholders, courts or legislatures do, including the consequences of a Trump or Harris term.",
      "examples": [
-      370,
-      465
+      414,
+      46
      ]
     },
     {
-     "id": "downballot",
-     "name": "Congressional and other races",
-     "definition": "Senate, House, state-level and future-cycle races other than the presidency.",
-     "examples": [
-      356,
-      388
-     ]
-    },
-    {
-     "id": "courts",
-     "name": "Courts and institutions",
-     "definition": "Judicial rulings, immunity, legislation, Supreme Court behavior and institutional checks.",
-     "examples": [
-      89,
-      64
-     ]
-    },
-    {
-     "id": "violence",
-     "name": "Political violence and regime collapse",
-     "definition": "Civil war, riots, fascism, dictatorship or retaliatory violence.",
+     "id": "breakdown",
+     "name": "Political violence & societal breakdown",
+     "definition": "Civil war, riots, fascism, dictatorship or collapse of democracy or society.",
      "examples": [
       63,
-      245
+      254
      ]
     },
     {
-     "id": "foreign",
-     "name": "Foreign and international affairs",
-     "definition": "Wars, NATO, Gaza, Iran, Russia and foreign elections.",
+     "id": "intl",
+     "name": "International affairs",
+     "definition": "Foreign conflicts, alliances and foreign elections such as Gaza, NATO, Iran and France.",
      "examples": [
-      280,
-      219
+      231,
+      157
      ]
     },
     {
-     "id": "misc",
-     "name": "Economy, society and niche topics",
-     "definition": "Economic, cultural, corporate, online-community or personal predictions outside mainstream politics.",
+     "id": "markets",
+     "name": "Markets & economy",
+     "definition": "Stock prices, crypto, recessions, corporate results and labor actions.",
      "examples": [
-      145,
-      169
+      1018,
+      235
+     ]
+    },
+    {
+     "id": "culture",
+     "name": "Entertainment, gaming & sports",
+     "definition": "Box office, game releases, showcases, and NBA games, trades and drafts.",
+     "examples": [
+      872,
+      999
+     ]
+    },
+    {
+     "id": "tech",
+     "name": "AI & technology futures",
+     "definition": "AI capabilities, automation, robotics and the social effects of technology.",
+     "examples": [
+      1091,
+      1056
      ]
     }
    ]
   },
   {
-   "id": "conditionality",
-   "name": "Conditional structure",
-   "why": "Whether a forecast can be scored depends heavily on whether its condition ever occurs or is even clearly stated.",
+   "id": "claim",
+   "name": "Kind of claim",
+   "why": "Whether a forecast names a contest result, a number, an actor's choice, a reaction, a trend, a systemic shift or a judgment determines what evidence could settle it.",
    "categories": [
     {
-     "id": "unconditional",
-     "name": "Unconditional",
-     "definition": "The forecast stands on its own with no stated trigger.",
+     "id": "winner",
+     "name": "Contest result",
+     "definition": "States who wins or loses a defined competition such as an election, series or ranking.",
      "examples": [
       67,
-      279
+      983
      ]
     },
     {
-     "id": "real_trigger",
-     "name": "Conditional on an observable trigger",
-     "definition": "It depends on a concrete event that will plausibly happen or not, such as Trump winning or Biden staying in.",
+     "id": "numeric",
+     "name": "Quantitative target",
+     "definition": "Gives a specific number, threshold or range, such as a gross, price, margin or electoral votes.",
      "examples": [
-      10,
-      117
+      385,
+      1041
+     ]
+    },
+    {
+     "id": "action",
+     "name": "Actor decision",
+     "definition": "Says a specific person or organization will or won't take a discrete action.",
+     "examples": [
+      162,
+      1011
+     ]
+    },
+    {
+     "id": "reaction",
+     "name": "Group reaction or perception",
+     "definition": "Predicts how voters, media, opponents or fans will respond, believe or behave.",
+     "examples": [
+      18,
+      299
+     ]
+    },
+    {
+     "id": "trend",
+     "name": "Continuation or trend",
+     "definition": "Says an existing condition will persist, worsen or keep moving in a direction.",
+     "examples": [
+      109,
+      124
+     ]
+    },
+    {
+     "id": "systemic",
+     "name": "Structural transformation",
+     "definition": "Forecasts a broad change in a political, economic or technological system.",
+     "examples": [
+      245,
+      1063
+     ]
+    },
+    {
+     "id": "evaluative",
+     "name": "Qualitative judgment",
+     "definition": "Predicts that something will be good, bad, earnest or harmful in an interpretive sense.",
+     "examples": [
+      145,
+      456
+     ]
+    }
+   ]
+  },
+  {
+   "id": "cond",
+   "name": "Conditionality",
+   "why": "Many forecasts hinge on an IF clause, and the nature of that antecedent decides whether the forecast can ever be triggered and scored.",
+   "categories": [
+    {
+     "id": "uncond",
+     "name": "Unconditional",
+     "definition": "States the outcome without any stated precondition.",
+     "examples": [
+      298,
+      1040
+     ]
+    },
+    {
+     "id": "realcond",
+     "name": "Plausible-event condition",
+     "definition": "Depends on a concrete, observable future event that may actually occur.",
+     "examples": [
+      117,
+      127
      ]
     },
     {
      "id": "counterfactual",
-     "name": "Conditional on an untested hypothetical",
-     "definition": "It depends on a scenario unlikely ever to occur, so the conditional is never put to the test.",
+     "name": "Counterfactual hypothetical",
+     "definition": "Depends on a scenario that is unlikely or that resolves as not happening.",
      "examples": [
       140,
       152
      ]
     },
     {
-     "id": "vague_trigger",
-     "name": "Conditional on a vague or unspecified trigger",
-     "definition": "The condition is unclear, refers to unseen context or is not clearly measurable.",
+     "id": "vaguecond",
+     "name": "Vague or open-ended condition",
+     "definition": "Depends on an unspecified, normative or loosely defined antecedent.",
      "examples": [
       69,
-      62
+      244
      ]
     }
    ]
   },
   {
-   "id": "verifiability",
+   "id": "verif",
    "name": "Scorability",
-   "why": "Separates forecasts that could be cleanly graded right or wrong from those that resist resolution.",
+   "why": "This separates forecasts that can be marked right or wrong cleanly from those that can never be checked.",
    "categories": [
     {
      "id": "crisp",
-     "name": "Crisp and resolvable",
-     "definition": "A clearly defined event or outcome that will plainly occur or not.",
+     "name": "Crisply resolvable",
+     "definition": "Has a clear outcome and public data that settle it unambiguously.",
      "examples": [
-      2,
-      386
+      386,
+      1022
      ]
     },
     {
-     "id": "fuzzy_threshold",
-     "name": "Resolvable but fuzzy threshold",
-     "definition": "An observable outcome with a qualitative threshold such as a landslide, a large defeat or many voters.",
+     "id": "judgment",
+     "name": "Resolvable with judgment",
+     "definition": "Checkable in principle, but terms like 'bump', 'decent' or 'large' need an agreed operationalization.",
      "examples": [
-      16,
-      57
+      177,
+      871
      ]
     },
     {
-     "id": "interpretive",
-     "name": "Interpretive or perceptual",
-     "definition": "Claims about rhetoric, attitudes or reactions that require judgment to assess.",
+     "id": "abstract",
+     "name": "Hard to resolve",
+     "definition": "Relies on abstract concepts or an open-ended horizon, making scoring contestable.",
      "examples": [
-      18,
-      294
-     ]
-    },
-    {
-     "id": "sweeping",
-     "name": "Sweeping or open-ended",
-     "definition": "Grand, long-run or systemic claims with no clear resolution point.",
-     "examples": [
-      244,
-      234
+      245,
+      1101
      ]
     },
     {
      "id": "unresolvable",
      "name": "Unresolvable",
-     "definition": "The forecast has an unclear referent or depends on a counterfactual, so it cannot be graded.",
+     "definition": "Has an unspecified referent or an untriggered hypothetical, so no outcome can be observed.",
      "examples": [
       51,
-      241
+      301
      ]
     }
    ]
@@ -186,73 +247,64 @@
   {
    "id": "horizon",
    "name": "Time horizon",
-   "why": "Short-horizon forecasts resolve quickly, while multi-decade ones are effectively unscorable within a study window.",
+   "why": "How far ahead a forecast looks ranges from hours (trading) to decades (AI, fascism), which shapes when and whether it can be checked.",
    "categories": [
     {
-     "id": "days_weeks",
-     "name": "Days to weeks",
-     "definition": "The forecast is expected to resolve within days or a few weeks.",
+     "id": "immediate",
+     "name": "Immediate",
+     "definition": "Resolves within about a week, such as today's close, this game or this Friday.",
      "examples": [
-      6,
-      400
+      1044,
+      6
      ]
     },
     {
-     "id": "cycle_2024",
-     "name": "2024 election cycle",
-     "definition": "The forecast resolves by the November 2024 election or the January 2025 transition.",
+     "id": "near",
+     "name": "Near-term",
+     "definition": "Resolves within weeks to about a year, such as the current election, season or film run.",
      "examples": [
-      13,
-      385
+      2,
+      872
      ]
     },
     {
-     "id": "next_term",
-     "name": "Next presidential term",
-     "definition": "The forecast resolves during 2025 to 2028, including midterms and second-term actions.",
+     "id": "multiyear",
+     "name": "Multi-year",
+     "definition": "Resolves within roughly 1 to 5 years, such as a presidential term, the midterms or the 2027 release window.",
      "examples": [
       461,
-      371
+      948
      ]
     },
     {
-     "id": "long_run",
-     "name": "Beyond 2028 or decades",
-     "definition": "The forecast concerns generations, decades or the far future.",
+     "id": "long",
+     "name": "Long or indefinite",
+     "definition": "Spans decades or gives no endpoint at all.",
      "examples": [
       361,
-      283
-     ]
-    },
-    {
-     "id": "untimed",
-     "name": "Unspecified",
-     "definition": "No timeframe is stated or implied.",
-     "examples": [
-      31,
-      41
+      1091
      ]
     }
    ]
   },
   {
-   "id": "confidence",
+   "id": "conf",
    "name": "Expressed confidence",
-   "why": "Hedging language indicates how strongly the commenter commits and how much a miss should count against them.",
+   "why": "Hedge language signals how strongly the commenter committed to the forecast, which matters for calibration scoring.",
    "categories": [
     {
      "id": "certain",
-     "name": "Certain or emphatic",
-     "definition": "The commenter uses language signaling near-certainty, such as guaranteed, no way or will.",
+     "name": "Emphatic certainty",
+     "definition": "Uses guarantees or absolutes such as 'certain', '100%', 'never' or 'no way'.",
      "examples": [
       10,
-      188
+      973
      ]
     },
     {
      "id": "probable",
      "name": "Probable",
-     "definition": "The commenter signals moderate-to-high likelihood, such as probably, likely or I think.",
+     "definition": "Uses moderate likelihood language such as 'probably', 'likely', 'I think' or 'I doubt'.",
      "examples": [
       9,
       162
@@ -260,90 +312,29 @@
     },
     {
      "id": "possible",
-     "name": "Possible",
-     "definition": "The commenter signals weak commitment, such as might, could or maybe.",
+     "name": "Mere possibility",
+     "definition": "Uses weak language such as 'might', 'could' or 'maybe'.",
      "examples": [
       48,
-      101
+      997
      ]
     },
     {
-     "id": "bare",
-     "name": "Unhedged statement",
-     "definition": "The forecast is stated flatly with no explicit confidence marker.",
+     "id": "unhedged",
+     "name": "Unhedged assertion",
+     "definition": "Stated flatly with no explicit confidence marker.",
      "examples": [
       67,
-      106
+      1040
      ]
     },
     {
      "id": "sarcastic",
      "name": "Sarcastic or ironic",
-     "definition": "The forecast is expressed through sarcasm, so the stance is the inverse of the literal wording.",
+     "definition": "The literal statement is mocked, so the real expectation is the opposite.",
      "examples": [
       79,
-      95
-     ]
-    }
-   ]
-  },
-  {
-   "id": "claim_type",
-   "name": "Kind of claim",
-   "why": "Different claim forms, such as winners, numbers, actions and reactions, differ in precision and in how they would be checked.",
-   "categories": [
-    {
-     "id": "contest",
-     "name": "Contest winner",
-     "definition": "Who wins or loses an election, nomination or race.",
-     "examples": [
-      93,
-      376
-     ]
-    },
-    {
-     "id": "quantity",
-     "name": "Quantitative magnitude",
-     "definition": "A specific number, margin or count.",
-     "examples": [
-      385,
-      231
-     ]
-    },
-    {
-     "id": "actor_action",
-     "name": "Discrete action by an actor",
-     "definition": "A specific person or institution takes or refrains from a particular action.",
-     "examples": [
-      204,
-      465
-     ]
-    },
-    {
-     "id": "group_reaction",
-     "name": "Group or voter behavior",
-     "definition": "How a constituency, base or public responds or votes.",
-     "examples": [
-      54,
-      58
-     ]
-    },
-    {
-     "id": "narrative",
-     "name": "Rhetoric and narrative",
-     "definition": "What people will say, claim, blame or believe.",
-     "examples": [
-      189,
-      262
-     ]
-    },
-    {
-     "id": "system_state",
-     "name": "Systemic state or trend",
-     "definition": "A broad condition of a country, economy, party or person changes or persists.",
-     "examples": [
-      78,
-      290
+      1045
      ]
     }
    ]

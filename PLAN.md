@@ -119,31 +119,35 @@ At the measured forecast rates, 50 filtered comments a month yields ~12-27 forec
 - **The free local model: tested, not worth it on this laptop** (2026-10-15, [research/local_screen.py](research/local_screen.py)). As a yes/no screen ("could this contain a prediction?") on the 188 pilot comments that pass the broad filter, phi3:mini flagged 47% and caught only 42 of the 74 comments where Claude found a forecast (57%). The free strict phrase filter does better on the same comments: keeps 57%, catches 60 of 74 (81%), instantly. phi3:mini took a median 9 s per comment (up to 77 s), and its memory crept up until the kernel killed Ollama after ~25 comments; unloading it every 15 comments fixed that. Revisit with a bigger model on a future GPU desktop.
 - **So the free first pass is the strict phrase filter**, and Claude does all the reading. Maintenance becomes: a quarterly refresh, strict filter, then Claude via Batch. For a 300-person panel that's roughly 25,000 comments a quarter, about $6/month at the Sonnet + cache + Batch estimate (to be confirmed by step 5).
 
-### What kinds of predictions people make (2026-10-14, $0.99)
-An open-ended classification of all 477 forecasts found so far (pilot, calibration samples, doomer sample): Claude proposed its own categories from the data, then labeled each forecast. Script and results: [research/classify_forecasts.py](research/classify_forecasts.py), [forecast_taxonomy.json](research/forecast_taxonomy.json), [forecast_labels.json](research/forecast_labels.json) (labels are keyed by forecast id in the local database).
+### What kinds of predictions people make (re-run 2026-10-15 with non-political subreddits, $2.88)
+An open-ended classification: Claude proposes its own categories from the data, then labels each forecast. Second run, over all 726 forecasts Opus has found: the 477 political ones (pilot, calibration samples, doomer sample) plus 100 filtered comments from each of 5 non-political subreddits' 15 heaviest commenters during **June 2-8, 2025** (Switch 2 launch, NBA Finals, Summer Game Fest, early summer box office). Script and results: [research/classify_forecasts.py](research/classify_forecasts.py) (`--report` prints the full table), [forecast_taxonomy.json](research/forecast_taxonomy.json), [forecast_labels.json](research/forecast_labels.json). The categories are re-invented on each run, so the numbers aren't directly comparable with the first run's; locking them is a to-do.
 
-| Dimension | Breakdown |
-|---|---|
-| Can it be scored? | 40% crisp, 15% fuzzy threshold ("landslide"), 25% interpretive, 8% sweeping, 12% unresolvable |
-| Topic | 25% election outcome, 19% campaign dynamics, 13% nominations, 11% what the winner does in office, 9% economy/culture/niche, 6% violence or regime collapse, 5% foreign affairs, 5% courts, 4% other races |
-| Conditional? | 56% unconditional, 29% on a real trigger ("if Trump wins"), 9% on a vague trigger, 6% on a hypothetical that never gets tested ("Michelle Obama would beat Trump") |
-| Confidence | 43% stated flatly, 27% "probably", 19% emphatic, 10% "might", 1% sarcastic |
-| Kind of claim | 31% who wins, 25% a specific action, 20% a broad trend, 12% how a group votes or reacts, 6% rhetoric, 6% a number |
-| Time horizon | 53% the 2024 cycle (because that's when we sampled), 19% next term, 19% none stated, 5% decades, 4% days to weeks |
+| | Crisply resolvable | Resolvable with judgment | Hard to resolve or unresolvable | Long or no horizon | Unhedged |
+|---|---|---|---|---|---|
+| r/GamingLeaksAndRumours | **67%** | 33% | **0%** | 5% | 18% |
+| r/boxoffice | 54% | 37% | 9% | 5% | 36% |
+| r/nba | 41% | 38% | 22% | 5% | 30% |
+| r/wallstreetbets | 38% | 24% | 38% | 6% | 41% |
+| r/politics | 33% | 32% | 34% | 6% | 55% |
+| r/Destiny | 33% | 38% | 28% | 10% | 46% |
+| r/Hasan_Piker | 24% | 41% | 36% | 11% | 50% |
+| r/accelerate | 5% | 16% | **80%** | **83%** | 36% |
+| r/LateStageCapitalism | 9% | 27% | **64%** | 50% | 41% |
 
-Differences between subreddits (22-54 forecasts each, so leads rather than findings):
-- **r/LateStageCapitalism and r/socialism** make mostly sweeping, long-range systemic predictions (r/LateStageCapitalism: 36% sweeping, 36% beyond 2028). Their regulars will barely build records: not for lack of forecasting, but because the forecasts can't be checked.
-- **r/neoliberal** hedges most: 24% "might/could", only 16% stated flatly (the lowest), 80% unconditional.
-- **r/politics and r/Destiny** state things flatly (53% and 46%) and focus on election outcomes.
-- **r/Conservative** has the most unresolvable forecasts (23%) and the most about courts and political violence.
-- **The doomer sample** is 44% conditional and 44% about the next term, so it resolves now.
+(r/neoliberal, r/Conservative and r/socialism have only 21-25 forecasts each; see `--report`.)
 
-What it means:
-- Scoring needs a rule for the 43% stated with no hedge. The planned "about 90%" assumption covers almost half the data, so it needs checking.
-- A community's forecasting *style* is a signal in itself: predictions that can't be checked should rank differently from ones that came true or failed.
-- Drop the unresolvable 12% and the untested hypotheticals early, before spending money scoring them.
-- Only ~55% of forecasts are scorable, so cost per *useful* forecast is about double the cost per forecast.
-- Sampling only around 2024 skews everything toward elections. Questions from other periods and topics are needed (see roadmap step 2).
+What stands out:
+- **Gaming and box office are the most scorable communities by far.** r/GamingLeaksAndRumours: 78% of forecasts are a company doing something specific (announce, delay, release), and none are unresolvable. r/boxoffice: 41% are numeric targets (opening weekend, totals). Both resolve within weeks. Ideal testbeds for the scoring, as planned.
+- **r/accelerate and r/LateStageCapitalism mirror each other.** AI optimists and anti-capitalists both make sweeping, long-range "structural transformation" predictions (r/accelerate 56% of its forecasts), most with no horizon or a long one, and most hard or impossible to resolve. Their regulars will barely get records, for the same reason.
+- **r/wallstreetbets** is 97% markets: numeric price targets and short horizons (35% within days), but 35% unresolvable (no ticker, date or level), and the most sarcasm (9%, with r/nba at 8%).
+- **Hedging is cultural.** r/GamingLeaksAndRumours, a rumor community, hedges most ("probably" etc. 64%, flat statements only 18%); r/politics states things flatly most (55%).
+- **Politics is in the middle on scorability** (about two-thirds resolvable at least with judgment), and the doomer sample is the most conditional (34% on a plausible condition, 17% on a counterfactual).
+
+Implications:
+- Scoring needs a rule for unhedged forecasts (40% of all); the 90% assumption is the biggest single assumption in the system.
+- A community's forecasting *style* is a signal in itself; unresolvable-heavy communities need a different signal (reasoning quality) or none.
+- Drop unresolvable forecasts and counterfactuals early, before spending money scoring them.
+- Start scoring on gaming, box office and sports: fast, crisp outcomes test the machinery without political judgment calls.
 
 ### Informal accuracy check (calibration samples, Jul 8-14, 2024)
 Clean right/wrong calls by Claude on the resolvable forecasts only, ignoring confidence and crowd comparison: r/Hasan_Piker 14/16, r/Destiny 8/9, r/politics 6/8, r/neoliberal 6/10, r/socialism 3/4, r/Conservative 2/4, r/LateStageCapitalism 3/3. Mostly measures one question (who saw the Biden withdrawal coming that week); 3-16 forecasts per subreddit is far too few to rank anyone.

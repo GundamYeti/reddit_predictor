@@ -6,7 +6,10 @@ import json, re, sys, time, urllib.parse, urllib.request
 
 BASE = "https://arctic-shift.photon-reddit.com/api/comments/search"
 UA = "reddit_predictor/0.2 (research; github.com/GundamYeti/reddit_predictor)"
-START, END = 1720396800, 1720396800 + 7 * 86400
+import calendar, os
+# The week sampled: RESEARCH_WEEK=YYYY-MM-DD (UTC), default the political samples' 2024-07-08.
+START = calendar.timegm(time.strptime(os.environ.get("RESEARCH_WEEK", "2024-07-08"), "%Y-%m-%d"))
+END = START + 7 * 86400
 TOP = 15
 
 # The broad prefilter: kept 37% of r/politics comments and 74 of 76 with a forecast.

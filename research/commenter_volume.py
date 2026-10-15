@@ -7,7 +7,9 @@ import collections, json, sys, time, urllib.parse, urllib.request
 BASE = "https://arctic-shift.photon-reddit.com/api/comments/search/aggregate"
 UA = "reddit_predictor/0.2 (research; github.com/GundamYeti/reddit_predictor)"
 SUBS = sys.argv[1].split(",")
-START = 1720396800  # 2024-07-08 00:00 UTC
+import calendar, os
+# The week sampled: RESEARCH_WEEK=YYYY-MM-DD (UTC), default the political samples' 2024-07-08.
+START = calendar.timegm(time.strptime(os.environ.get("RESEARCH_WEEK", "2024-07-08"), "%Y-%m-%d"))
 DAYS = 7
 SKIP = {"[deleted]", "AutoModerator"}
 
