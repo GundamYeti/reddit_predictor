@@ -10,7 +10,10 @@ Pick one with PREDICTOR_LLM=ollama|claude, or the --llm flag.
 
 import json
 import os
+import time
 import urllib.request
+
+from predictor.activity_log import log_call
 
 
 class OllamaBackend:
@@ -36,8 +39,21 @@ class OllamaBackend:
         req = urllib.request.Request(self.url + "/api/generate", data=body,
                                      headers={"Content-Type": "application/json"})
         timeout = float(os.environ.get("PREDICTOR_OLLAMA_TIMEOUT", "300"))
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return json.loads(json.load(resp)["response"])
+        start = time.monotonic()
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                data = json.load(resp)
+        except Exception as e:
+            log_call("reddit_predictor", "ollama", self.model, time.monotonic() - start,
+                     ok=False, error=e, preview=prompt)
+            raise
+        # Ollama durations are in nanoseconds.
+        eval_s = (data.get("eval_duration") or 0) / 1e9
+        log_call("reddit_predictor", "ollama", self.model, time.monotonic() - start, preview=prompt,
+                 input_tokens=data.get("prompt_eval_count"), output_tokens=data.get("eval_count"),
+                 tokens_per_s=round(data["eval_count"] / eval_s, 1) if eval_s and data.get("eval_count") else None,
+                 load_s=round((data.get("load_duration") or 0) / 1e9, 1) or None)
+        return json.loads(data["response"])
 
 
 # Dollars per million tokens (input, output), for the running cost estimate.
@@ -64,17 +80,30 @@ class ClaudeBackend:
         return (self.input_tokens * inp + self.output_tokens * out) / 1e6
 
     def complete_json(self, system, prompt, schema):
-        response = self.client.messages.create(
-            model=self.model,
-            max_tokens=8000,
-            system=system,
-            messages=[{"role": "user", "content": prompt}],
-            # Low effort keeps per-comment cost down; raise it if tagging quality disappoints.
-            output_config={"effort": os.environ.get("PREDICTOR_CLAUDE_EFFORT", "low"),
-                           "format": {"type": "json_schema", "schema": schema}},
-        )
+        start = time.monotonic()
+        try:
+            response = self.client.messages.create(
+                model=self.model,
+                max_tokens=8000,
+                system=system,
+                messages=[{"role": "user", "content": prompt}],
+                # Low effort keeps per-comment cost down; raise it if tagging quality disappoints.
+                output_config={"effort": os.environ.get("PREDICTOR_CLAUDE_EFFORT", "low"),
+                               "format": {"type": "json_schema", "schema": schema}},
+            )
+        except Exception as e:
+            log_call("reddit_predictor", "claude", self.model, time.monotonic() - start,
+                     ok=False, error=e, preview=prompt)
+            raise
         self.input_tokens += response.usage.input_tokens
         self.output_tokens += response.usage.output_tokens
+        inp, out = PRICES.get(self.model, (None, None))
+        log_call("reddit_predictor", "claude", self.model, time.monotonic() - start, preview=prompt,
+                 ok=response.stop_reason != "refusal",
+                 error="refused" if response.stop_reason == "refusal" else None,
+                 input_tokens=response.usage.input_tokens, output_tokens=response.usage.output_tokens,
+                 cost_usd=round((response.usage.input_tokens * inp + response.usage.output_tokens * out) / 1e6, 5)
+                 if inp is not None else None)
         if response.stop_reason == "refusal":
             raise RuntimeError("model declined to classify this comment")
         text = next(b.text for b in response.content if b.type == "text")
