@@ -71,39 +71,53 @@ class ClaudeBackend:
         self.model = model or os.environ.get("PREDICTOR_CLAUDE_MODEL", "claude-opus-5-5")
         self.name = f"claude:{self.model}"
         self.input_tokens = self.output_tokens = 0
+        self.cache_read_tokens = self.cache_write_tokens = 0
 
-    def cost(self):
-        """Estimated dollars spent so far this run, or None for an unknown model."""
+    def _dollars(self, inp_tokens, out_tokens, read_tokens, write_tokens):
         if self.model not in PRICES:
             return None
         inp, out = PRICES[self.model]
-        return (self.input_tokens * inp + self.output_tokens * out) / 1e6
+        # Cache reads cost a tenth of normal input; writing the cache costs 1.25x.
+        return (inp_tokens * inp + out_tokens * out + read_tokens * inp * 0.1 + write_tokens * inp * 1.25) / 1e6
+
+    def cost(self):
+        """Estimated dollars spent so far this run, or None for an unknown model."""
+        return self._dollars(self.input_tokens, self.output_tokens, self.cache_read_tokens, self.cache_write_tokens)
 
     def complete_json(self, system, prompt, schema):
         start = time.monotonic()
         try:
+            output_config = {"format": {"type": "json_schema", "schema": schema}}
+            if not self.model.startswith("claude-haiku"):  # Haiku 4.5 doesn't take an effort setting
+                # Low effort keeps per-comment cost down; raise it if tagging quality disappoints.
+                output_config["effort"] = os.environ.get("PREDICTOR_CLAUDE_EFFORT", "low")
             response = self.client.messages.create(
                 model=self.model,
                 max_tokens=8000,
-                system=system,
+                # The instructions are identical on every call, so cache them: later calls
+                # read them at a tenth of the price. (Haiku 4.5 needs 4,096+ tokens to cache,
+                # so for it this is a no-op.)
+                system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
                 messages=[{"role": "user", "content": prompt}],
-                # Low effort keeps per-comment cost down; raise it if tagging quality disappoints.
-                output_config={"effort": os.environ.get("PREDICTOR_CLAUDE_EFFORT", "low"),
-                               "format": {"type": "json_schema", "schema": schema}},
+                output_config=output_config,
             )
         except Exception as e:
             log_call("reddit_predictor", "claude", self.model, time.monotonic() - start,
                      ok=False, error=e, preview=prompt)
             raise
-        self.input_tokens += response.usage.input_tokens
-        self.output_tokens += response.usage.output_tokens
-        inp, out = PRICES.get(self.model, (None, None))
+        u = response.usage
+        read, write = u.cache_read_input_tokens or 0, u.cache_creation_input_tokens or 0
+        self.input_tokens += u.input_tokens
+        self.output_tokens += u.output_tokens
+        self.cache_read_tokens += read
+        self.cache_write_tokens += write
+        dollars = self._dollars(u.input_tokens, u.output_tokens, read, write)
         log_call("reddit_predictor", "claude", self.model, time.monotonic() - start, preview=prompt,
                  ok=response.stop_reason != "refusal",
                  error="refused" if response.stop_reason == "refusal" else None,
-                 input_tokens=response.usage.input_tokens, output_tokens=response.usage.output_tokens,
-                 cost_usd=round((response.usage.input_tokens * inp + response.usage.output_tokens * out) / 1e6, 5)
-                 if inp is not None else None)
+                 input_tokens=u.input_tokens, output_tokens=u.output_tokens,
+                 cache_read_tokens=read or None, cache_write_tokens=write or None,
+                 cost_usd=round(dollars, 5) if dollars is not None else None)
         if response.stop_reason == "refusal":
             raise RuntimeError("model declined to classify this comment")
         text = next(b.text for b in response.content if b.type == "text")
