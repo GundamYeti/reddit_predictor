@@ -65,9 +65,19 @@ def pick(conn, subreddits, top, week_start, get=sources._get_json, pause=2.0, ou
     return added
 
 
-def weeks(since, until):
-    """Week-long windows from since, the last one ending at or before until."""
-    return [w for w in range(since, until - WEEK + 1, WEEK)]
+def weeks(since, until, done=()):
+    """Week-long windows covering since..until, the last one ending at or before until.
+
+    If some weeks are already fetched, new windows continue on from them (forward
+    to until, and back to since) instead of starting a fresh grid at since, so a
+    monthly refresh never re-reads days it already has.
+    """
+    if not done:
+        return list(range(since, until - WEEK + 1, WEEK))
+    first, last = min(done), max(done)
+    back = list(range(first - WEEK, since - 1, -WEEK))[::-1]
+    forward = list(range(last + WEEK, until - WEEK + 1, WEEK))
+    return back + forward
 
 
 def member_week(author, subreddit, after, before, get=sources._get_json, pause=1.5):
@@ -92,15 +102,12 @@ def fetch(conn, since, until, cap_per_month=40, pattern=prefilter.STRICT, get=so
     per_week = math.ceil(cap_per_month * 7 / 30)
     members = conn.execute("SELECT * FROM panel WHERE status = 'active' ORDER BY subreddit, weekly_comments DESC"
                            ).fetchall()
-    windows = weeks(since, until)
     stored = 0
     for i, m in enumerate(members, 1):
         done = {r[0] for r in conn.execute(
             "SELECT week_start FROM panel_fetches WHERE author = ? AND subreddit = ?", (m["author"], m["subreddit"]))}
         kept_here = seen_here = 0
-        for w in windows:
-            if w in done:
-                continue
+        for w in weeks(since, until, done):
             try:
                 comments = member_week(m["author"], m["subreddit"], w, w + WEEK, get, pause)
             except RuntimeError as e:  # the archive kept failing; this week is retried next run
@@ -121,6 +128,45 @@ def fetch(conn, since, until, cap_per_month=40, pattern=prefilter.STRICT, get=so
         out(f"  [{i}/{len(members)}] r/{m['subreddit']} u/{m['author']}: kept {kept_here} of {seen_here} comments")
     out(f"Stored {stored} comments as sample {TAG!r}. Next: python -m predictor batch submit --tag {TAG}")
     return stored
+
+
+def members(conn, extractor=None):
+    """Per active member: months fetched, comments scanned, forecasts found."""
+    return conn.execute("""
+        SELECT p.author, p.subreddit, p.weekly_comments,
+               (SELECT COUNT(*) FROM panel_fetches f WHERE f.author = p.author AND f.subreddit = p.subreddit) / 4.3
+                   AS months,
+               (SELECT COUNT(*) FROM scans s JOIN comments c ON c.id = s.comment_id
+                 WHERE c.source = 'panel' AND c.author = p.author AND c.subreddit = p.subreddit
+                   AND (? IS NULL OR s.extractor = ?)) AS scanned,
+               (SELECT COUNT(*) FROM forecasts f JOIN comments c ON c.id = f.comment_id
+                 WHERE c.source = 'panel' AND c.author = p.author AND c.subreddit = p.subreddit
+                   AND (? IS NULL OR f.extractor = ?)) AS forecasts
+        FROM panel p WHERE p.status = 'active' ORDER BY p.subreddit, p.author""",
+        (extractor, extractor, extractor, extractor)).fetchall()
+
+
+def prune(conn, min_per_month=5, min_scanned=20, extractor=None, dry_run=False, out=print):
+    """Drop members who make fewer than min_per_month forecasts a month.
+
+    Only members with at least min_scanned comments scanned are judged; the rest
+    keep their place until there's enough to go on. Dropped members keep their
+    data and can be set back to 'active' by hand.
+    """
+    dropped = []
+    for m in members(conn, extractor):
+        if m["scanned"] < min_scanned or not m["months"]:
+            continue
+        rate = m["forecasts"] / m["months"]
+        if rate < min_per_month:
+            dropped.append((m["author"], m["subreddit"], rate))
+    for author, sub, rate in dropped:
+        out(f"  drop r/{sub} u/{author}: {rate:.1f} forecasts a month")
+        if not dry_run:
+            conn.execute("UPDATE panel SET status = 'dropped' WHERE author = ? AND subreddit = ?", (author, sub))
+    conn.commit()
+    out(f"{'Would drop' if dry_run else 'Dropped'} {len(dropped)} members.")
+    return dropped
 
 
 def status(conn, extractor=None, out=print):

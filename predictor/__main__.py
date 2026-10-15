@@ -157,6 +157,10 @@ def cmd_panel_status(conn, a):
     panel.status(conn, a.extractor)
 
 
+def cmd_panel_prune(conn, a):
+    panel.prune(conn, a.min_per_month, a.min_scanned, dry_run=a.dry_run)
+
+
 def cmd_spend(conn, a):
     print(f"This month: ${db.month_spend(conn):.2f} of the ${batch.budget():.2f} budget "
           f"(PREDICTOR_MONTHLY_BUDGET).")
@@ -282,10 +286,15 @@ def main(argv=None):
     s.add_argument("--top", type=int, default=20, help="members per subreddit (default %(default)s)")
     s.add_argument("--week", help="YYYY-MM-DD week to rank commenters in (default: the Monday two weeks back)")
     s.set_defaults(fn=cmd_panel_pick)
-    s = psub.add_parser("fetch", help="fetch members' recent comments that pass the phrase filter")
+    s = psub.add_parser("fetch", help="fetch members' comments that pass the phrase filter; rerun monthly to refresh")
     s.add_argument("--months", type=float, default=1, help="how far back (default %(default)s)")
     s.add_argument("--cap", type=int, default=40, help="filtered comments kept per member per month (default %(default)s)")
     s.set_defaults(fn=cmd_panel_fetch)
+    s = psub.add_parser("prune", help="drop members who rarely make forecasts")
+    s.add_argument("--min-per-month", type=float, default=5, help="forecasts a month to stay (default %(default)s)")
+    s.add_argument("--min-scanned", type=int, default=20, help="only judge members with this many scanned comments")
+    s.add_argument("--dry-run", action="store_true", help="list who would be dropped without dropping them")
+    s.set_defaults(fn=cmd_panel_prune)
     s = psub.add_parser("status", help="members, comments, scans and forecasts per subreddit")
     s.add_argument("--extractor", help="count only this extractor's scans")
     s.set_defaults(fn=cmd_panel_status)

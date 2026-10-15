@@ -116,6 +116,11 @@ $P panel fetch --months 1 --cap 40
 $P batch submit --tag panel
 $P batch collect --wait
 $P panel status
+
+# Once a month: fetch what's new (it continues from each member's last fetched week),
+# scan it, and drop members who rarely make forecasts (--dry-run to preview).
+$P panel fetch --months 1
+$P panel prune --min-per-month 5
 ```
 
 ### Batch scanning (half price, within a monthly budget)

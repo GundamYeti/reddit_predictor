@@ -80,6 +80,35 @@ class Panel(unittest.TestCase):
         self.assertEqual(panel.weeks(WEEK0, WEEK0 + 3 * panel.WEEK + 86400),
                          [WEEK0, WEEK0 + panel.WEEK, WEEK0 + 2 * panel.WEEK])
 
+    def test_refresh_continues_from_fetched_weeks(self):
+        W = panel.WEEK
+        done = {WEEK0, WEEK0 + W}
+        # A later refresh with a different start continues after the last fetched week...
+        self.assertEqual(panel.weeks(WEEK0 + 3 * 86400, WEEK0 + 4 * W, done), [WEEK0 + 2 * W, WEEK0 + 3 * W])
+        # ...and extending further back fills in before the first.
+        self.assertEqual(panel.weeks(WEEK0 - 2 * W, WEEK0 + 2 * W, done), [WEEK0 - 2 * W, WEEK0 - W])
+
+    def test_prune_drops_members_who_rarely_forecast(self):
+        self.conn.executemany("INSERT INTO panel (author, subreddit, weekly_comments) VALUES (?, 'nba', 50)",
+                              [("talker",), ("forecaster",), ("newcomer",)])
+        self.conn.executemany("INSERT INTO panel_fetches (author, subreddit, week_start, seen, passed, kept)"
+                              " VALUES (?, 'nba', ?, 50, 10, 10)",
+                              [(a, WEEK0 + k * panel.WEEK) for a in ("talker", "forecaster", "newcomer") for k in range(4)])
+        for author, n_comments, n_forecasts in [("talker", 30, 2), ("forecaster", 30, 20), ("newcomer", 5, 0)]:
+            for i in range(n_comments):
+                cid = f"{author}{i}"
+                self.conn.execute("INSERT INTO comments (id, author, subreddit, body, created_utc, source)"
+                                  " VALUES (?, ?, 'nba', '', ?, 'panel')", (cid, author, WEEK0 + i))
+                self.conn.execute("INSERT INTO scans (comment_id, extractor, n_forecasts) VALUES (?, 'm', ?)",
+                                  (cid, 1 if i < n_forecasts else 0))
+                if i < n_forecasts:
+                    self.conn.execute("INSERT INTO forecasts (comment_id, extractor, proposition, direction)"
+                                      " VALUES (?, 'm', 'x', 'happens')", (cid,))
+        dropped = panel.prune(self.conn, min_per_month=5, out=self.log.append)
+        self.assertEqual([d[0] for d in dropped], ["talker"])  # ~2 a month; newcomer has too few scans to judge
+        active = {r[0] for r in self.conn.execute("SELECT author FROM panel WHERE status = 'active'")}
+        self.assertEqual(active, {"forecaster", "newcomer"})
+
     def test_filter_handles_curly_apostrophes(self):
         self.assertTrue(prefilter.passes("He won’t run"))
         self.assertFalse(prefilter.passes("nice dunk"))
