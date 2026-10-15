@@ -125,6 +125,52 @@ CREATE TABLE IF NOT EXISTS panel_fetches (
     PRIMARY KEY (author, subreddit, week_start)
 );
 
+-- Claims: forecasts grouped into yes/no questions (see claims.py). Merged claims point
+-- at the claim they were folded into.
+CREATE TABLE IF NOT EXISTS claims (
+    id           INTEGER PRIMARY KEY,
+    question     TEXT NOT NULL,             -- a self-contained yes/no question
+    deadline     TEXT NOT NULL DEFAULT '',  -- the time frame the forecasts gave, if any
+    search       TEXT NOT NULL DEFAULT '',  -- a few words to find a matching prediction market
+    tag          TEXT NOT NULL,             -- which comment sample it came from
+    merged_into  INTEGER REFERENCES claims(id),
+    market_id    TEXT REFERENCES markets(id),
+    market_same  INTEGER,                   -- 1 if YES on the claim = YES on the market, 0 if reversed
+    question_id  INTEGER REFERENCES questions(id),  -- set once you promote it
+    created_at   INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE TABLE IF NOT EXISTS claim_members (
+    claim_id     INTEGER NOT NULL REFERENCES claims(id),
+    forecast_id  INTEGER NOT NULL REFERENCES forecasts(id),
+    stance       TEXT NOT NULL CHECK (stance IN ('yes', 'no')),  -- the answer this forecast expects
+    PRIMARY KEY (claim_id, forecast_id)
+);
+CREATE INDEX IF NOT EXISTS claim_members_forecast ON claim_members(forecast_id);
+-- Forecasts the grouping step judged uncheckable, so they aren't sent again.
+CREATE TABLE IF NOT EXISTS claim_drops (
+    forecast_id  INTEGER PRIMARY KEY REFERENCES forecasts(id)
+);
+
+-- Prediction markets (Polymarket): their questions, rules and outcomes (see markets.py).
+CREATE TABLE IF NOT EXISTS markets (
+    id           TEXT PRIMARY KEY,
+    source       TEXT NOT NULL,
+    question     TEXT NOT NULL,
+    rules        TEXT NOT NULL DEFAULT '',
+    url          TEXT NOT NULL DEFAULT '',
+    end_date     INTEGER,                   -- when it resolves at the latest
+    closed_at    INTEGER,                   -- when it actually closed, once it has
+    outcome      TEXT CHECK (outcome IN ('yes', 'no', 'void')),
+    price_yes    REAL,                      -- the market's last YES price, 0-1
+    fetched_at   INTEGER NOT NULL DEFAULT (unixepoch())
+);
+
+-- Claims already checked against the markets, matched or not, so they aren't searched again.
+CREATE TABLE IF NOT EXISTS market_checks (
+    claim_id    INTEGER PRIMARY KEY REFERENCES claims(id),
+    checked_at  INTEGER NOT NULL DEFAULT (unixepoch())
+);
+
 -- Every paid model run, for the monthly budget.
 CREATE TABLE IF NOT EXISTS spend (
     id      INTEGER PRIMARY KEY,
@@ -159,12 +205,14 @@ ADDED_COLUMNS = [
     ("predictions", "hedge_phrase", "TEXT NOT NULL DEFAULT ''"),
     ("predictions", "condition", "TEXT NOT NULL DEFAULT ''"),
     ("predictions", "condition_met", "INTEGER"),
+    ("questions", "market_id", "TEXT"),  # set when a question uses a prediction market's rules and outcome
 ]
 
 
 def _migrate(conn):
     for table, column, definition in ADDED_COLUMNS:
-        if column not in {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}:
+        existing = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+        if existing and column not in existing:  # no columns: the table doesn't exist here
             conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
     conn.commit()
 

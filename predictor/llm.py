@@ -118,10 +118,10 @@ class ClaudeBackend:
         return cost_of(self.model, self.input_tokens, self.output_tokens, self.cache_read_tokens,
                        self.cache_write_tokens)
 
-    def complete_json(self, system, prompt, schema):
+    def complete_json(self, system, prompt, schema, max_tokens=8000):
         start = time.monotonic()
         try:
-            response = self.client.messages.create(**request_params(self.model, system, prompt, schema))
+            response = self.client.messages.create(**request_params(self.model, system, prompt, schema, max_tokens))
         except Exception as e:
             log_call("reddit_predictor", "claude", self.model, time.monotonic() - start,
                      ok=False, error=e, preview=prompt)

@@ -123,6 +123,34 @@ $P panel fetch --months 1
 $P panel prune --min-per-month 5
 ```
 
+### From forecasts to questions: claims and prediction markets
+
+Forecasts only count once they're tied to a question with an outcome.
+
+```bash
+# Group a sample's forecasts into yes/no claims. Uncheckable ones (personal lives,
+# unclear references, sweeping claims) are dropped; duplicates across subreddits merge.
+$P claims group --tag panel
+
+# Look for a Polymarket market asking the same question as each claim.
+$P markets match --min-authors 2
+
+# The most-predicted claims, with the YES/NO split and any matched market.
+$P claims list --min-authors 2
+
+# Make a claim a question. With a matched market it takes the market's wording,
+# rules and end date; otherwise give the date the answer becomes known.
+$P claims promote 17
+$P claims promote 23 --closes 2026-12-31
+
+# Its forecasts are now in the review queue; market questions resolve themselves.
+$P review 5
+$P markets sync
+$P scores
+```
+
+A matched market means using **Polymarket's resolution rules, not yours**: that's the price of not resolving everything by hand. `--no-market` on promote keeps a claim yours.
+
 ### Batch scanning (half price, within a monthly budget)
 
 For real volume, send comments through the Batch API: about 20 comments per request with Sonnet 5.5,

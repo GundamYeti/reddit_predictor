@@ -5,7 +5,7 @@ import calendar
 import sys
 import time
 
-from . import batch, db, extract, llm, panel, pilot, review, score, sources
+from . import batch, claims, db, extract, llm, markets, panel, pilot, review, score, sources
 
 
 def date(s):
@@ -161,6 +161,69 @@ def cmd_panel_prune(conn, a):
     panel.prune(conn, a.min_per_month, a.min_scanned, dry_run=a.dry_run)
 
 
+def _budget_ok(conn, estimate, what):
+    spent, cap = db.month_spend(conn), batch.budget()
+    if spent + estimate > cap:
+        print(f"Not run: {what} would cost about ${estimate:.2f}, and ${spent:.2f} of this month's ${cap:.2f} "
+              f"is already spent. Raise PREDICTOR_MONTHLY_BUDGET to go ahead.")
+        return False
+    return True
+
+
+def cmd_claims_group(conn, a):
+    n = len(claims.ungrouped(conn, a.tag))
+    if not n:
+        print(f"Every forecast in {a.tag!r} is already grouped or dropped.")
+        return
+    # Measured: about $0.0005 per forecast with Sonnet 5.5 (rounded up).
+    if _budget_ok(conn, n * 0.0006, f"grouping {n} forecasts"):
+        claims.group(conn, llm.get_backend("claude", a.model), a.tag)
+
+
+def cmd_claims_list(conn, a):
+    rows = claims.listing(conn, a.tag, a.min_authors, a.top)
+    if not rows:
+        print("No claims yet. Make some with: python -m predictor claims group --tag panel")
+        return
+    for r in rows:
+        state = f"question #{r['question_id']}" if r["question_id"] else ""
+        print(f"#{r['id']:<5} {r['authors']} people, {r['forecasts']} forecasts ({r['yes']} yes / {r['no']} no) "
+              f"in {', '.join('r/' + s for s in r['subreddits'].split(','))} {state}\n"
+              f"       {r['question']}" + (f"  [{r['deadline']}]" if r["deadline"] else ""))
+        if r["market_question"]:
+            price = (f"resolved {r['outcome'].upper()}" if r["outcome"] else
+                     f"market says {r['price_yes']:.0%} yes" if r["price_yes"] is not None else "")
+            print(f"       Polymarket: {r['market_question']} ({price})")
+
+
+def cmd_claims_promote(conn, a):
+    try:
+        qid = claims.promote(conn, a.id, date(a.closes) if a.closes else None, a.text, a.criteria,
+                             use_market=not a.no_market)
+    except ValueError as e:
+        raise SystemExit(str(e))
+    q = conn.execute("SELECT * FROM questions WHERE id = ?", (qid,)).fetchone()
+    n = conn.execute("SELECT COUNT(*) FROM predictions WHERE question_id = ?", (qid,)).fetchone()[0]
+    print(f"Question #{qid}: {q['text']}\n{n} forecasts are in the review queue: python -m predictor review {qid}")
+    if q["market_id"]:
+        print("It resolves with its Polymarket market: run python -m predictor markets sync now and then.")
+    else:
+        print(f"Resolve it yourself when the answer is known: python -m predictor question resolve {qid} yes|no")
+
+
+def cmd_markets_match(conn, a):
+    n = conn.execute("SELECT COUNT(*) FROM claims WHERE merged_into IS NULL AND market_id IS NULL"
+                     " AND question_id IS NULL AND id NOT IN (SELECT claim_id FROM market_checks)").fetchone()[0]
+    n = min(n, a.limit) if a.limit else n
+    # Measured: about $0.0008 per claim with Sonnet 5.5 (rounded up).
+    if _budget_ok(conn, n * 0.001, f"matching {n} claims"):
+        markets.match(conn, llm.get_backend("claude", a.model), a.tag, a.min_authors, a.limit)
+
+
+def cmd_markets_sync(conn, a):
+    markets.sync(conn)
+
+
 def cmd_spend(conn, a):
     print(f"This month: ${db.month_spend(conn):.2f} of the ${batch.budget():.2f} budget "
           f"(PREDICTOR_MONTHLY_BUDGET).")
@@ -298,6 +361,36 @@ def main(argv=None):
     s = psub.add_parser("status", help="members, comments, scans and forecasts per subreddit")
     s.add_argument("--extractor", help="count only this extractor's scans")
     s.set_defaults(fn=cmd_panel_status)
+
+    cp = sub.add_parser("claims", help="forecasts grouped into yes/no questions you can promote (step 2)")
+    csub = cp.add_subparsers(dest="claims_command", required=True)
+    s = csub.add_parser("group", help="group a sample's forecasts into claims")
+    s.add_argument("--tag", default="panel")
+    s.add_argument("--model", default="claude-sonnet-5-5")
+    s.set_defaults(fn=cmd_claims_group)
+    s = csub.add_parser("list", help="claims, most-predicted first")
+    s.add_argument("--tag")
+    s.add_argument("--min-authors", type=int, default=2, help="only claims at least this many people predicted")
+    s.add_argument("--top", type=int, default=30)
+    s.set_defaults(fn=cmd_claims_list)
+    s = csub.add_parser("promote", help="turn a claim into a question; its forecasts go to the review queue")
+    s.add_argument("id", type=int)
+    s.add_argument("--closes", help="YYYY-MM-DD the answer became known (not needed with a matched market)")
+    s.add_argument("--text", help="reword the question")
+    s.add_argument("--criteria", help="how it resolves (default: the market's rules)")
+    s.add_argument("--no-market", action="store_true", help="ignore the matched market; resolve it yourself")
+    s.set_defaults(fn=cmd_claims_promote)
+
+    mp = sub.add_parser("markets", help="Polymarket questions as ground truth (step 7)")
+    msub = mp.add_subparsers(dest="markets_command", required=True)
+    s = msub.add_parser("match", help="find a Polymarket market for each claim")
+    s.add_argument("--tag")
+    s.add_argument("--min-authors", type=int, default=1)
+    s.add_argument("--limit", type=int, help="match at most this many claims")
+    s.add_argument("--model", default="claude-sonnet-5-5")
+    s.set_defaults(fn=cmd_markets_match)
+    s = msub.add_parser("sync", help="resolve questions whose market has resolved")
+    s.set_defaults(fn=cmd_markets_sync)
 
     s = sub.add_parser("spend", help="this month's model spending against the budget")
     s.add_argument("--last", type=int, default=10, help="show this many recent entries")
