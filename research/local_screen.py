@@ -43,6 +43,18 @@ def report(rows, res):
     print(f"Median {secs[len(secs) // 2]:.0f} s per comment (slowest {secs[-1]:.0f} s).")
 
 
+def unload(backend):
+    """Unload the model so Ollama frees its memory. On the 7.5 GB laptop its memory
+    crept up to 3.8 GB over ~25 comments and the kernel killed it (2026-10-15)."""
+    import urllib.request
+    body = json.dumps({"model": backend.model, "keep_alive": 0}).encode()
+    try:
+        urllib.request.urlopen(urllib.request.Request(backend.url + "/api/generate", data=body,
+                               headers={"Content-Type": "application/json"}), timeout=60).read()
+    except Exception:
+        pass
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--tag", default="pilot1")
@@ -63,13 +75,19 @@ def main():
     todo = [r for r in rows if r[0] not in res]
     print(f"{len(rows)} filtered comments, {len(todo)} to screen with {backend.name}", flush=True)
     for i, (cid, body, _) in enumerate(todo, 1):
-        start = time.monotonic()
-        try:
-            answer = backend.complete_json(SYSTEM, "Comment:\n" + body[:3000], SCHEMA)
-            res[cid] = {"prediction": bool(answer.get("prediction")), "seconds": time.monotonic() - start}
-        except Exception as e:  # keep going; a rerun retries failures
-            print(f"  [{i}] failed: {e}", flush=True)
-            continue
+        if i % 15 == 0:
+            unload(backend)
+        for attempt in range(5):
+            start = time.monotonic()
+            try:
+                answer = backend.complete_json(SYSTEM, "Comment:\n" + body[:3000], SCHEMA)
+                res[cid] = {"prediction": bool(answer.get("prediction")), "seconds": time.monotonic() - start}
+                break
+            except Exception as e:  # Ollama restarting (e.g. after running out of memory): wait and retry
+                print(f"  [{i}] failed: {e}; retrying in 30 s", flush=True)
+                time.sleep(30)
+        else:
+            sys.exit("Ollama keeps failing; rerun later to resume.")
         out.write_text(json.dumps(res))
         if i % 10 == 0 or i == len(todo):
             print(f"  [{i}/{len(todo)}]", flush=True)
