@@ -104,6 +104,27 @@ CREATE TABLE IF NOT EXISTS batch_requests (
     PRIMARY KEY (batch_id, custom_id)
 );
 
+-- The panel: heavy commenters whose comments are followed (see panel.py).
+CREATE TABLE IF NOT EXISTS panel (
+    author          TEXT NOT NULL,
+    subreddit       TEXT NOT NULL,
+    weekly_comments INTEGER NOT NULL,       -- how many they wrote in the week they were picked
+    status          TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'dropped')),
+    added_at        INTEGER NOT NULL DEFAULT (unixepoch()),
+    PRIMARY KEY (author, subreddit)
+);
+-- Which weeks of each member's comments have been fetched, and how many were kept.
+CREATE TABLE IF NOT EXISTS panel_fetches (
+    author      TEXT NOT NULL,
+    subreddit   TEXT NOT NULL,
+    week_start  INTEGER NOT NULL,
+    seen        INTEGER NOT NULL,           -- comments they wrote that week
+    passed      INTEGER NOT NULL,           -- passed the phrase filter
+    kept        INTEGER NOT NULL,           -- stored, after the per-week cap
+    fetched_at  INTEGER NOT NULL DEFAULT (unixepoch()),
+    PRIMARY KEY (author, subreddit, week_start)
+);
+
 -- Every paid model run, for the monthly budget.
 CREATE TABLE IF NOT EXISTS spend (
     id      INTEGER PRIMARY KEY,

@@ -5,7 +5,7 @@ import calendar
 import sys
 import time
 
-from . import batch, db, extract, llm, pilot, review, score, sources
+from . import batch, db, extract, llm, panel, pilot, review, score, sources
 
 
 def date(s):
@@ -129,6 +129,34 @@ def cmd_batch_collect(conn, a):
     batch.collect_all(conn, _client(), wait=a.wait)
 
 
+FEED_SUBREDDITS = "politics,neoliberal,Destiny,Hasan_Piker,Conservative,LateStageCapitalism,boxoffice,GamingLeaksAndRumours,nba"
+
+
+def cmd_panel_pick(conn, a):
+    if a.week:
+        week = date(a.week)
+    else:  # the Monday at least two weeks back, so the archive has caught up
+        t = int(time.time()) - 14 * 86400
+        week = t - t % 86400 - time.gmtime(t).tm_wday * 86400
+    print(f"Picking the top {a.top} commenters per subreddit in the week of "
+          f"{time.strftime('%Y-%m-%d', time.gmtime(week))}...")
+    added = panel.pick(conn, [s.strip() for s in a.subreddits.split(",") if s.strip()], a.top, week)
+    print(f"Added {added} members.")
+
+
+def cmd_panel_fetch(conn, a):
+    until = int(time.time()) - 2 * 86400  # the archive lags a little
+    until -= until % 86400
+    since = until - int(a.months * 30) * 86400
+    print(f"Fetching {time.strftime('%Y-%m-%d', time.gmtime(since))} to {time.strftime('%Y-%m-%d', time.gmtime(until))},"
+          f" at most {a.cap} filtered comments per member per month...")
+    panel.fetch(conn, since, until, a.cap)
+
+
+def cmd_panel_status(conn, a):
+    panel.status(conn, a.extractor)
+
+
 def cmd_spend(conn, a):
     print(f"This month: ${db.month_spend(conn):.2f} of the ${batch.budget():.2f} budget "
           f"(PREDICTOR_MONTHLY_BUDGET).")
@@ -246,6 +274,21 @@ def main(argv=None):
     s = bsub.add_parser("collect", help="store the results of finished batches")
     s.add_argument("--wait", action="store_true", help="keep checking every minute until all have finished")
     s.set_defaults(fn=cmd_batch_collect)
+
+    pp = sub.add_parser("panel", help="the heavy commenters whose comments are followed (see PLAN.md)")
+    psub = pp.add_subparsers(dest="panel_command", required=True)
+    s = psub.add_parser("pick", help="add the top commenters of each subreddit")
+    s.add_argument("--subreddits", default=FEED_SUBREDDITS, help="comma-separated (default: %(default)s)")
+    s.add_argument("--top", type=int, default=20, help="members per subreddit (default %(default)s)")
+    s.add_argument("--week", help="YYYY-MM-DD week to rank commenters in (default: the Monday two weeks back)")
+    s.set_defaults(fn=cmd_panel_pick)
+    s = psub.add_parser("fetch", help="fetch members' recent comments that pass the phrase filter")
+    s.add_argument("--months", type=float, default=1, help="how far back (default %(default)s)")
+    s.add_argument("--cap", type=int, default=40, help="filtered comments kept per member per month (default %(default)s)")
+    s.set_defaults(fn=cmd_panel_fetch)
+    s = psub.add_parser("status", help="members, comments, scans and forecasts per subreddit")
+    s.add_argument("--extractor", help="count only this extractor's scans")
+    s.set_defaults(fn=cmd_panel_status)
 
     s = sub.add_parser("spend", help="this month's model spending against the budget")
     s.add_argument("--last", type=int, default=10, help="show this many recent entries")

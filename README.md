@@ -98,6 +98,26 @@ $P pilot label
 $P pilot report
 ```
 
+### The panel: follow heavy commenters
+
+Scanning everyone is far over budget, so the project follows a fixed panel of each
+subreddit's heaviest commenters (see PLAN.md, "What $10/month buys").
+
+```bash
+# Add the top 20 commenters of each subreddit (default: the feed subreddits), ranked
+# by how much they commented in the week two weeks back.
+$P panel pick --top 20
+
+# Fetch their last month of comments, keep those with prediction words, and at most
+# 40 per member per month (a random sample, spread across each week).
+$P panel fetch --months 1 --cap 40
+
+# Then scan them through the Batch API, and see how far each subreddit has got.
+$P batch submit --tag panel
+$P batch collect --wait
+$P panel status
+```
+
 ### Batch scanning (half price, within a monthly budget)
 
 For real volume, send comments through the Batch API: about 20 comments per request with Sonnet 5.5,
