@@ -166,8 +166,28 @@ r/Feminism, r/TwoXChromosomes and r/MensRights: 100 filtered comments each from 
 - Their members would almost never get a track record, so for communities like these a reasoning-quality signal is the only kind of score possible.
 - The locked categories from the main run have no "personal life" topic, so personal predictions were forced into the nearest topic; another reason to revise the categories before locking them.
 
-### Informal accuracy check (calibration samples, Jul 8-14, 2024)
-Clean right/wrong calls by Claude on the resolvable forecasts only, ignoring confidence and crowd comparison: r/Hasan_Piker 14/16, r/Destiny 8/9, r/politics 6/8, r/neoliberal 6/10, r/socialism 3/4, r/Conservative 2/4, r/LateStageCapitalism 3/3. Mostly measures one question (who saw the Biden withdrawal coming that week); 3-16 forecasts per subreddit is far too few to rank anyone.
+### Informal accuracy check, all samples (2026-10-15)
+Claude resolved every *crisply resolvable* forecast it could from its own knowledge (not your rules; resolutions in [research/informal_resolutions.json](research/informal_resolutions.json), keyed by forecast id). Skipped: forecasts with no deadline that haven't happened yet (most second-term predictions, "Iran gets nukes"), conditions not met, unknown referents ("the film"), "Biden loses the election" (he wasn't on the ballot), and anything not confidently known. Brier uses the hedge table; 0.25 = always saying 50/50.
+
+| Community (sample week) | Right | Brier |
+|---|---|---|
+| r/Hasan_Piker (Jul 2024) | 10/10 | 0.04 |
+| r/nba (Jun 2025) | 5/6 | 0.08 |
+| r/boxoffice (Jun 2025) | 6/7 | 0.12 |
+| r/Destiny (Jul 2024) | 6/8 | 0.24 |
+| r/politics (Jun-Jul 2024) | 31/46 | 0.25 |
+| r/neoliberal (Jul 2024) | 5/8 | 0.26 |
+| r/politics, doomer sample (Oct 2024) | 12/23 | 0.34 |
+| r/neoliberal, doomer sample (Oct 2024) | 9/25 | 0.41 |
+| r/wallstreetbets (Jun 2025) | 0/3 | 0.67 |
+| Fewer than 4 resolvable: r/Conservative 2/3, r/GamingLeaksAndRumours 2/2, r/LateStageCapitalism 2/2, r/accelerate 1/2, r/socialism 0/1, r/TwoXChromosomes 1/1, r/MensRights 1/1 | | |
+
+What it shows, and why not to lean on it:
+- **Mostly two questions.** The political rows mostly measure "will Biden withdraw?" (July) and "who wins in November?" (October). r/Hasan_Piker's regulars called both; r/neoliberal's October commenters mostly called Harris, at a time when polls were close to 50/50, so confident Harris calls cost them.
+- **Easy calls inflate scores.** Many sports and box-office hits are safe "won't" calls ("Superman won't make $2 billion"). The crowd-relative score is built to discount these, but needs more forecasters per question than these samples have.
+- **Different weeks, different difficulty.** Calling the election in mid-July is harder than calling it on Nov 4; rows from different weeks aren't comparable.
+- **Tiny samples:** 1-46 resolved forecasts per row, one week each.
+- A real ranking needs the panel funnel: the same people, many questions, compared against the crowd at the same time.
 
 ### Second-term "doomer" predictions (2026-10-14, $2.28)
 The question that started this research: how did fears about a second Trump term hold up? About 280 comments from r/neoliberal and r/politics, Oct 1 – Nov 4, 2024, found by searching "second term" and "if Trump wins". Claude found 151 forecasts; about 50 were about what a second term would bring, the rest mostly about who would win.
