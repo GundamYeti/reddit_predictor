@@ -1,0 +1,37 @@
+{
+ "politics": {
+  "heavy_comments": 8038,
+  "passed_filter": 2399,
+  "sampled": 100
+ },
+ "neoliberal": {
+  "heavy_comments": 10962,
+  "passed_filter": 3106,
+  "sampled": 100
+ },
+ "Destiny": {
+  "heavy_comments": 2945,
+  "passed_filter": 1111,
+  "sampled": 100
+ },
+ "Conservative": {
+  "heavy_comments": 1593,
+  "passed_filter": 502,
+  "sampled": 100
+ },
+ "socialism": {
+  "heavy_comments": 338,
+  "passed_filter": 148,
+  "sampled": 100
+ },
+ "LateStageCapitalism": {
+  "heavy_comments": 894,
+  "passed_filter": 241,
+  "sampled": 100
+ },
+ "Hasan_Piker": {
+  "heavy_comments": 874,
+  "passed_filter": 332,
+  "sampled": 100
+ }
+}

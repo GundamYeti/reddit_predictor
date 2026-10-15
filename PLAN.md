@@ -23,6 +23,8 @@ Order: the general front page first, then per-topic records (someone can be good
 
 **Funnel, don't scan everything.** Scanning every comment is unaffordable (see Findings). Only heavy commenters, only comments that pass a phrase filter, a cheap model before the expensive one, and then rescans of known people only.
 
+**Budget: about $10/month of Claude API, hard ceiling** (set 2026-10-15). Everything below is designed to fit that. At $10/month the project can scan roughly 10,000-25,000 comments a month, so it follows a fixed **panel** of a few hundred heavy commenters rather than everyone (see "What $10/month buys").
+
 ## Findings so far
 
 ### Pilot (2026-10-14): 504 unfiltered r/politics comments, Jun 27 – Jul 21, 2024
@@ -79,20 +81,94 @@ Samples are 100 comments each, so treat rates as ±10 points. The guess was too 
 
 What this means:
 - **Volume isn't the problem for most subreddits.** Heavy commenters plausibly make dozens to hundreds of forecasts a month, enough for a record within weeks. r/socialism is the exception: too small to build records, so r/LateStageCapitalism replaces it.
-- **Cost is the problem.** Scanning everyone with ≥20 comments/week across these five, after the filter, with Opus at list price: **~$3,000/month** (r/politics ~$1,800, r/neoliberal ~$950). Needs to come down 10-50x: Haiku as a middle pass (4x cheaper per token), the Batch API (half price), a cap on comments scanned per person, and dropping people after their first month if they rarely forecast.
+- **Cost is the problem.** Scanning everyone with ≥20 comments/week across these subreddits, after the filter, the way the pilot ran (Opus, one comment per request): **~$2,800/month**, about 280x the budget.
 - This was a busy news week (debate fallout, the July 13 assassination attempt), so typical weeks are probably lighter.
+
+### What $10/month buys
+Each scan so far sent ~1,370 tokens in and got ~90 back, and most of the input is the same fixed instructions repeated for every comment. Estimated cost per filtered comment (only the first row is measured):
+
+| Setup | $/comment | Comments for $10 |
+|---|---|---|
+| Opus 5.5, one comment per request (the pilot, measured) | $0.0069 | ~1,450 |
+| Opus + cache the fixed instructions + Batch API | ~$0.0014 | ~7,300 |
+| Sonnet 5.5 + cache + Batch | ~$0.00075 | ~13,000 |
+| Sonnet 5.5 + Batch + ~20 comments per request | ~$0.0004 (rough guess) | ~25,000 |
+| Haiku 4.5 + Batch (its prompt is too short to cache) | ~$0.0009 | ~11,000 |
+
+Caching (cached input costs ~10%) and Batch (half price) don't change results. Switching model or packing comments together might, so both need checking against Opus on the pilot first.
+
+**A panel instead of everyone.** Commenting is concentrated, so a small panel covers a lot:
+
+| Panel | People | Share of all comments in each subreddit | Filtered comments/month at 50 per person |
+|---|---|---|---|
+| Top 25 per subreddit | 150 | politics 3%, Conservative 7%, Destiny 7%, LSC 12%, neoliberal 13%, Hasan_Piker 23% | ~7,200 |
+| Top 50 per subreddit | 300 | politics 4%, Conservative 11%, Destiny 12%, LSC 17%, neoliberal 21%, Hasan_Piker 32% | ~13,000 |
+| Top 100 per subreddit | 600 | politics 6%, Conservative 17%, Destiny 18%, LSC 23%, neoliberal 31%, Hasan_Piker 42% | ~25,000 |
+
+At the measured forecast rates, 50 filtered comments a month yields ~12-27 forecasts per person, of which about half can be scored (see the classification below): enough for a record within a few months. r/politics is too big for a panel to cover much; the smaller, tighter communities are where this works best.
+
+**Other ways to stay under budget:**
+- **Questions first, once there's a question bank.** Instead of scanning everything a panel member writes, search their comments for keywords tied to questions we can resolve. Much cheaper per *scorable* forecast, since about half of all forecasts can never be scored anyway.
+- **One-time vs. monthly.** Backfilling a panel's history is a one-off cost; after that only new comments are scanned.
+- **The free local model.** Costs nothing but takes 70-90 s per comment and misreads "should" as "will"; usable as an overnight first pass at most, and only one heavy job at a time on this laptop. A future GPU desktop changes this.
+
+### What kinds of predictions people make (2026-10-14, $0.99)
+An open-ended classification of all 477 forecasts found so far (pilot, calibration samples, doomer sample): Claude proposed its own categories from the data, then labeled each forecast. Script and results: [research/classify_forecasts.py](research/classify_forecasts.py), [forecast_taxonomy.json](research/forecast_taxonomy.json), [forecast_labels.json](research/forecast_labels.json) (labels are keyed by forecast id in the local database).
+
+| Dimension | Breakdown |
+|---|---|
+| Can it be scored? | 40% crisp, 15% fuzzy threshold ("landslide"), 25% interpretive, 8% sweeping, 12% unresolvable |
+| Topic | 25% election outcome, 19% campaign dynamics, 13% nominations, 11% what the winner does in office, 9% economy/culture/niche, 6% violence or regime collapse, 5% foreign affairs, 5% courts, 4% other races |
+| Conditional? | 56% unconditional, 29% on a real trigger ("if Trump wins"), 9% on a vague trigger, 6% on a hypothetical that never gets tested ("Michelle Obama would beat Trump") |
+| Confidence | 43% stated flatly, 27% "probably", 19% emphatic, 10% "might", 1% sarcastic |
+| Kind of claim | 31% who wins, 25% a specific action, 20% a broad trend, 12% how a group votes or reacts, 6% rhetoric, 6% a number |
+| Time horizon | 53% the 2024 cycle (because that's when we sampled), 19% next term, 19% none stated, 5% decades, 4% days to weeks |
+
+Differences between subreddits (22-54 forecasts each, so leads rather than findings):
+- **r/LateStageCapitalism and r/socialism** make mostly sweeping, long-range systemic predictions (r/LateStageCapitalism: 36% sweeping, 36% beyond 2028). Their regulars will barely build records: not for lack of forecasting, but because the forecasts can't be checked.
+- **r/neoliberal** hedges most: 24% "might/could", only 16% stated flatly (the lowest), 80% unconditional.
+- **r/politics and r/Destiny** state things flatly (53% and 46%) and focus on election outcomes.
+- **r/Conservative** has the most unresolvable forecasts (23%) and the most about courts and political violence.
+- **The doomer sample** is 44% conditional and 44% about the next term, so it resolves now.
+
+What it means:
+- Scoring needs a rule for the 43% stated with no hedge. The planned "about 90%" assumption covers almost half the data, so it needs checking.
+- A community's forecasting *style* is a signal in itself: predictions that can't be checked should rank differently from ones that came true or failed.
+- Drop the unresolvable 12% and the untested hypotheticals early, before spending money scoring them.
+- Only ~55% of forecasts are scorable, so cost per *useful* forecast is about double the cost per forecast.
+- Sampling only around 2024 skews everything toward elections. Questions from other periods and topics are needed (see roadmap step 2).
+
+### Informal accuracy check (calibration samples, Jul 8-14, 2024)
+Clean right/wrong calls by Claude on the resolvable forecasts only, ignoring confidence and crowd comparison: r/Hasan_Piker 14/16, r/Destiny 8/9, r/politics 6/8, r/neoliberal 6/10, r/socialism 3/4, r/Conservative 2/4, r/LateStageCapitalism 3/3. Mostly measures one question (who saw the Biden withdrawal coming that week); 3-16 forecasts per subreddit is far too few to rank anyone.
+
+### Second-term "doomer" predictions (2026-10-14, $2.28)
+The question that started this research: how did fears about a second Trump term hold up? About 280 comments from r/neoliberal and r/politics, Oct 1 – Nov 4, 2024, found by searching "second term" and "if Trump wins". Claude found 151 forecasts; about 50 were about what a second term would bring, the rest mostly about who would win.
+
+Resolved informally by Claude in chat from its own knowledge (which runs to about mid-2026 and is thinner for recent months), not entered as resolutions. These need your check and your rules before they count.
+
+| | Predictions |
+|---|---|
+| **Came true** | Pardons loyalists ("just about guaranteed"): the Jan 6 pardons on day one. Tries to prosecute enemies ("just about guaranteed"): Comey and Letitia James indicted in fall 2025 (reportedly later dismissed over how the prosecutor was appointed). The Justice Department doesn't stop it; retaliation against opponents (law firms, security clearances). Tax breaks extended (2017 cuts made permanent, July 2025). Third-term / term-limit talk becomes prominent. |
+| **Did not happen (so far)** | US leaves NATO ("no ifs or buts"). Removed under the 25th Amendment, or Vance becomes president. Liz Cheney flees the country. Trump pardons Musk. The open internet ends. Thousands of US troops die in a war with Iran. |
+| **Partly** | "Starts a war with Iran": US strikes on Iran's nuclear sites, June 2025, but not the predicted war. "Strips citizens of citizenship and deports them": the birthright-citizenship order and a denaturalization push, not the scale predicted. Musk "kicked out": left after about four months, then a public feud. |
+| **Pending** | Democrats sweep the 2026 midterms (Nov 3, 2026). Trump dies in office. |
+| **Can't score without a written rule** | "Establishes a dictatorship", Orban-style vs. Modi-style, "the US doesn't survive", "far more harmful than the first term", "bad for everyone". About a third of the second-term forecasts. |
+
+Pattern: specific predictions that he would use power *for allies and against enemies* mostly came true; predictions of *institutional collapse or catastrophe* mostly haven't; the most common kind was too vague to score. This sample was chosen by keyword, so it shows what people predicted, not who was accurate.
+
+For the project: second-term predictions are a good question bank. There are many of them, they resolve gradually through 2029, and concrete markers ("the 2026 midterms happen on schedule", "a federal court order is openly defied") can stand in for unscoreable words like "dictatorship".
 
 ## Roadmap
 
 ### A. Validate the core
 1. **Label the pilot (you).** `python -m predictor pilot label` (~110 comments), then `pilot report`. Measures model-vs-you agreement; decides whether the model can be trusted at scale.
-2. **Group forecasts into claims (build).** Merge near-duplicates into "Biden withdraws before the DNC: 7 comments, 2 yes / 5 no"; drop context-less and unresolvable ones.
+2. **Group forecasts into claims (build), and widen the questions.** Merge near-duplicates into "Biden withdraws before the DNC: 7 comments, 2 yes / 5 no"; drop context-less and unresolvable ones. Add sample windows before other resolved events so it isn't all one question: Harris's running-mate pick, 2024 Senate/House control, the first Fed rate cut (Sept 2024), tariffs and recession talk, Gaza and Ukraine ceasefires, the NYC mayoral race, the fall 2025 shutdown, plus non-political ones (console launches, game delays, box office).
 3. **Fix the scoring (build).** Crowd-relative score next to raw Brier, a measured confidence table instead of the hand-made one, a both-sides penalty, a decision on conditionals.
 
 ### B. Make the funnel affordable
 4. ~~**Calibrate per subreddit.**~~ Done for the seven political subreddits (see Findings); repeat for each new one (~$0.75 each).
-5. **Measure a cheap middle pass.** Haiku (or the local model) on the pilot: what share of Claude's forecasts does it keep, at what cost? Free to compare on data already scanned, apart from Haiku's own small cost.
-6. **Build the funnel.** Heavy commenters → phrase filter → cheap model → Claude via Batch, with a per-person monthly cap. Then rescan only people who forecast often.
+5. **Cut cost per comment (~$1-2 to test).** Cache the fixed instructions; then re-run the 504 pilot comments with Sonnet 5.5, Haiku 4.5, and ~20 comments per request, and compare each to Opus's results (and to your labels). Pick the cheapest setup that holds up.
+6. **Build the panel funnel within $10/month.** Pick the panel (start with the top 25-50 per subreddit), phrase filter, the chosen model via Batch, 50 filtered comments per person per month, and a running monthly spend total that stops at the budget. Drop people who rarely forecast; keep rescanning those who do.
 
 ### C. Ground truth at scale
 7. **Import resolved prediction-market questions** and match forecasts to them; your own questions cover the rest.
@@ -117,12 +193,14 @@ What this means:
 | Politics, more leanings | r/moderatepolitics (301k), r/PoliticalDiscussion (2.2M), r/Libertarian (503k), r/centrist (57k), r/AskConservatives (28k), r/AskALiberal (55k) |
 | World affairs, war | r/geopolitics (687k), r/worldnews (44M), ★ r/CredibleDefense (103k) |
 | Economy, markets | r/Economics (5.2M), ★ r/wallstreetbets (17.7M), ★ r/stocks (8.4M), r/investing (2.9M), ★ r/CryptoCurrency (9.6M), r/REBubble (145k) |
-| Tech, AI | r/technology (18M), r/singularity (3.6M), r/MachineLearning (3M), r/hardware (4.3M) |
+| Tech, AI | r/technology (18M), r/singularity (3.6M), r/accelerate (432k comments so far; the archive's subscriber count of 4k looks stale), r/MachineLearning (3M), r/hardware (4.3M) |
 | Videogames | ★ r/GamingLeaksAndRumours (488k), r/Games (3.4M), r/pcgaming (3.8M), r/NintendoSwitch (7.7M), r/PS5 (8M) |
 | Film, TV | ★ r/boxoffice (1.1M), ★ r/oscarrace (82k), r/movies (34M), r/television (17.5M) |
 | Sports | ★ r/sportsbook (490k), ★ r/nba (15M), ★ r/nfl (11.9M), ★ r/soccer (8.4M), ★ r/formula1 (4.9M) |
 | Science, space | ★ r/SpaceX (3.6M), r/space (27.6M) |
 | Pessimism as a topic | r/collapse (524k): a natural place to test whether doom predictions come true |
+
+r/singularity and r/accelerate make a natural pair, like r/collapse on the other side: AI optimists versus a more mixed crowd, making checkable claims about model releases, benchmarks and timelines.
 
 Sports and box office are worth doing early for a different reason: outcomes are unambiguous and fast, so they're a good testbed for the scoring itself, separate from political judgment.
 
