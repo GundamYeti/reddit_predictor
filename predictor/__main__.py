@@ -171,6 +171,8 @@ def _budget_ok(conn, estimate, what):
 
 
 def cmd_claims_group(conn, a):
+    if a.recheck_drops:
+        print(f"Reconsidering {claims.recheck_drops(conn, a.tag)} previously dropped forecasts.")
     n = len(claims.ungrouped(conn, a.tag))
     if not n:
         print(f"Every forecast in {a.tag!r} is already grouped or dropped.")
@@ -212,6 +214,9 @@ def cmd_claims_promote(conn, a):
 
 
 def cmd_markets_match(conn, a):
+    stale = markets.unmatch_stale(conn)
+    if stale:
+        print(f"Re-matching {stale} claims whose market closed before they were predicted.")
     n = conn.execute("SELECT COUNT(*) FROM claims WHERE merged_into IS NULL AND market_id IS NULL"
                      " AND question_id IS NULL AND id NOT IN (SELECT claim_id FROM market_checks)").fetchone()[0]
     n = min(n, a.limit) if a.limit else n
@@ -367,6 +372,7 @@ def main(argv=None):
     s = csub.add_parser("group", help="group a sample's forecasts into claims")
     s.add_argument("--tag", default="panel")
     s.add_argument("--model", default="claude-sonnet-5-5")
+    s.add_argument("--recheck-drops", action="store_true", help="reconsider forecasts an earlier run dropped")
     s.set_defaults(fn=cmd_claims_group)
     s = csub.add_parser("list", help="claims, most-predicted first")
     s.add_argument("--tag")

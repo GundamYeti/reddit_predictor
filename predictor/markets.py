@@ -108,7 +108,8 @@ def search(query, get=_get):
 def match(conn, backend, tag=None, min_authors=1, limit=None, get=_get, out=print):
     """Find a market for each unmatched, unpromoted claim."""
     claims = conn.execute("""
-        SELECT cl.id, cl.question, cl.deadline, cl.search, COUNT(DISTINCT c.author) AS authors
+        SELECT cl.id, cl.question, cl.deadline, cl.search, COUNT(DISTINCT c.author) AS authors,
+               MIN(c.created_utc) AS first_forecast
         FROM claims cl JOIN claim_members cm ON cm.claim_id = cl.id
         JOIN forecasts f ON f.id = cm.forecast_id JOIN comments c ON c.id = f.comment_id
         WHERE cl.merged_into IS NULL AND cl.market_id IS NULL AND cl.question_id IS NULL
@@ -128,6 +129,8 @@ def match(conn, backend, tag=None, min_authors=1, limit=None, get=_get, out=prin
                 continue
             for row in cands:
                 save(conn, row)
+            # A market that closed before anyone in the claim spoke can't be what they predicted.
+            cands = [row for row in cands if not row["closed_at"] or row["closed_at"] > cl["first_forecast"]]
             offered[cl["id"]] = {row["id"] for row in cands}
             lines = [f'Claim {cl["id"]}: {cl["question"]}' + (f' (time frame: {cl["deadline"]})' if cl["deadline"] else "")]
             for row in cands:
@@ -159,6 +162,21 @@ def match(conn, backend, tag=None, min_authors=1, limit=None, get=_get, out=prin
         db.record_spend(conn, cost, "markets match")
     out(f"Matched {matched} of {len(claims)} claims to a Polymarket market.")
     return matched
+
+
+def unmatch_stale(conn):
+    """Undo matches to markets that closed before the claim's first forecast, so they're matched again."""
+    stale = [r[0] for r in conn.execute("""
+        SELECT cl.id FROM claims cl JOIN markets m ON m.id = cl.market_id
+        JOIN claim_members cm ON cm.claim_id = cl.id JOIN forecasts f ON f.id = cm.forecast_id
+        JOIN comments c ON c.id = f.comment_id
+        WHERE cl.question_id IS NULL AND m.closed_at IS NOT NULL
+        GROUP BY cl.id HAVING MAX(m.closed_at) <= MIN(c.created_utc)""")]
+    for cid in stale:
+        conn.execute("UPDATE claims SET market_id = NULL, market_same = NULL WHERE id = ?", (cid,))
+        conn.execute("DELETE FROM market_checks WHERE claim_id = ?", (cid,))
+    conn.commit()
+    return len(stale)
 
 
 def sync(conn, get=_get, out=print):

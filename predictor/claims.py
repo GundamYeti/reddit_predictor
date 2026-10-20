@@ -29,6 +29,8 @@ Drop forecasts that can never be checked:
 - opinions and sweeping, open-ended claims with no checkable event ("democracy goes out of style", "things get worse")
 - about the subreddit itself or its moderators
 
+Keep anything someone could check against public records, even if it's minor: a number for a named film, game, team or person (box office, sales, scores, polls); a release, announcement, delay, signing or trade; a chart or ranking placement; an election or vote. Only drop a forecast when nobody could ever check it. When unsure, keep it.
+
 Group the rest into claims. A claim is one self-contained yes/no question about a public event: name the people, teams, products and places; include the time frame the forecasts give ("by December 31, 2026", "in the 2026 midterms", "this season"). Forecasts that predict the same event belong to one claim even when they disagree; record for each the answer it expects (stance "yes" or "no"). A conditional forecast ("if A, then B") joins the claim about B; its condition is kept separately.
 
 For each claim also give:
@@ -100,6 +102,15 @@ def ungrouped(conn, tag):
         WHERE c.source = ? AND f.id NOT IN (SELECT forecast_id FROM claim_members)
           AND f.id NOT IN (SELECT forecast_id FROM claim_drops)
         ORDER BY c.subreddit, c.created_utc""", (tag,)).fetchall()
+
+
+def recheck_drops(conn, tag):
+    """Forget which forecasts were dropped, so the next group run reconsiders them."""
+    n = conn.execute("""DELETE FROM claim_drops WHERE forecast_id IN
+                        (SELECT f.id FROM forecasts f JOIN comments c ON c.id = f.comment_id WHERE c.source = ?)""",
+                     (tag,)).rowcount
+    conn.commit()
+    return n
 
 
 def group(conn, backend, tag, out=print):

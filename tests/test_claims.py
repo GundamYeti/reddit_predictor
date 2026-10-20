@@ -136,6 +136,21 @@ class Claims(unittest.TestCase):
         markets.match(self.conn, backend, get=get, out=lambda *_: None)
         self.assertEqual(len([c for c in calls[before:] if "public-search" in c]), 0)
 
+    def test_markets_closed_before_the_forecasts_are_not_offered(self):
+        self.grouped()
+
+        def get(url):
+            return {"events": [{"slug": "old", "markets": [
+                polymarket("old", "Will the Fed cut in early 2025?", 0, closed=True, resolved=True,
+                           closed_time="2025-03-19 19:00:00+00")]}]}  # before the forecasts (T0 is Sept 2025)
+
+        backend = Scripted(match={"matches": [{"claim": self.cut, "market": "old", "same_direction": True}]})
+        self.assertEqual(markets.match(self.conn, backend, get=get, out=lambda *_: None), 0)
+        # An earlier stale match is undone so the claim gets matched again.
+        self.conn.execute("UPDATE claims SET market_id = 'old', market_same = 1 WHERE id = ?", (self.cut,))
+        self.assertEqual(markets.unmatch_stale(self.conn), 1)
+        self.assertIsNone(self.conn.execute("SELECT market_id FROM claims WHERE id = ?", (self.cut,)).fetchone()[0])
+
     def test_parse_reads_outcomes(self):
         self.assertEqual(markets.parse(polymarket("x", "q", 1, closed=True, resolved=True))["outcome"], "yes")
         self.assertEqual(markets.parse(polymarket("x", "q", 0, closed=True, resolved=True))["outcome"], "no")
