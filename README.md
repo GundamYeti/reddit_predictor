@@ -151,6 +151,15 @@ $P scores
 
 A matched market means using **Polymarket's resolution rules, not yours**: that's the price of not resolving everything by hand. `--no-market` on promote keeps a claim yours.
 
+### Do the hand work in a spreadsheet
+
+Labeling and approving claims can also be done in Excel or Google Sheets, on any computer:
+
+```bash
+$P sheets export data/review.xlsx    # Label tab (blind) + Claims tab; fill in the yellow columns
+$P sheets import review-filled.xlsx  # labels saved; approved claims become questions
+```
+
 ### Batch scanning (half price, within a monthly budget)
 
 For real volume, send comments through the Batch API: about 20 comments per request with Sonnet 5.5,

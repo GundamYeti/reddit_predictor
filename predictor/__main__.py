@@ -5,7 +5,7 @@ import calendar
 import sys
 import time
 
-from . import batch, claims, db, extract, llm, markets, panel, pilot, review, score, sources
+from . import batch, claims, db, extract, llm, markets, panel, pilot, review, score, sheets, sources
 
 
 def date(s):
@@ -229,6 +229,15 @@ def cmd_markets_sync(conn, a):
     markets.sync(conn)
 
 
+def cmd_sheets_export(conn, a):
+    n = sheets.export(conn, a.path, a.tag)
+    print(f"Wrote {a.path}: {n['labels']} comments to label, {n['claims']} claims to approve or skip.")
+
+
+def cmd_sheets_import(conn, a):
+    sheets.import_(conn, a.path)
+
+
 def cmd_spend(conn, a):
     print(f"This month: ${db.month_spend(conn):.2f} of the ${batch.budget():.2f} budget "
           f"(PREDICTOR_MONTHLY_BUDGET).")
@@ -397,6 +406,16 @@ def main(argv=None):
     s.set_defaults(fn=cmd_markets_match)
     s = msub.add_parser("sync", help="resolve questions whose market has resolved")
     s.set_defaults(fn=cmd_markets_sync)
+
+    sp = sub.add_parser("sheets", help="do the labeling and claim approval in a spreadsheet")
+    ssub = sp.add_subparsers(dest="sheets_command", required=True)
+    s = ssub.add_parser("export", help="write a workbook with the comments to label and claims to approve")
+    s.add_argument("path", nargs="?", default="data/review.xlsx")
+    s.add_argument("--tag", default="pilot1", help="which sample's labeling set (default %(default)s)")
+    s.set_defaults(fn=cmd_sheets_export)
+    s = ssub.add_parser("import", help="read labels and approvals back from a filled-in workbook")
+    s.add_argument("path")
+    s.set_defaults(fn=cmd_sheets_import)
 
     s = sub.add_parser("spend", help="this month's model spending against the budget")
     s.add_argument("--last", type=int, default=10, help="show this many recent entries")
