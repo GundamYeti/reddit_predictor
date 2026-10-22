@@ -236,9 +236,13 @@ def promote(conn, claim_id, closes_at=None, text=None, criteria=None, use_market
         if not closes_at:
             raise ValueError("This claim has no matched market: give the date the answer became (or becomes) known")
         flip = False
-    cur = conn.execute("INSERT INTO questions (text, criteria, closes_at, market_id) VALUES (?, ?, ?, ?)",
-                       (text or cl["question"], criteria or "", closes_at, market["id"] if market else None))
-    qid = cur.lastrowid
+    existing = market and conn.execute("SELECT id FROM questions WHERE market_id = ?", (market["id"],)).fetchone()
+    if existing:  # another claim already asks this market's question: join it rather than duplicate it
+        qid = existing[0]
+    else:
+        cur = conn.execute("INSERT INTO questions (text, criteria, closes_at, market_id) VALUES (?, ?, ?, ?)",
+                           (text or cl["question"], criteria or "", closes_at, market["id"] if market else None))
+        qid = cur.lastrowid
     rows = conn.execute("""SELECT cm.stance, f.* FROM claim_members cm JOIN forecasts f ON f.id = cm.forecast_id
                            WHERE cm.claim_id = ? ORDER BY f.id""", (claim_id,)).fetchall()
     for r in rows:
@@ -252,3 +256,13 @@ def promote(conn, claim_id, closes_at=None, text=None, criteria=None, use_market
     conn.execute("UPDATE claims SET question_id = ? WHERE id = ?", (qid, claim_id))
     conn.commit()
     return qid
+
+
+def promote_matched(conn, out=print):
+    """Promote every claim that has a matched market and isn't a question yet."""
+    ids = [r[0] for r in conn.execute("""SELECT id FROM claims WHERE market_id IS NOT NULL
+                                         AND question_id IS NULL AND merged_into IS NULL ORDER BY id""")]
+    for cid in ids:
+        qid = promote(conn, cid)
+        out(f"  claim #{cid} -> question #{qid}")
+    return len(ids)

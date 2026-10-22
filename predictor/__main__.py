@@ -199,6 +199,12 @@ def cmd_claims_list(conn, a):
 
 
 def cmd_claims_promote(conn, a):
+    if a.all_matched:
+        n = claims.promote_matched(conn)
+        print(f"Promoted {n} claims with a Polymarket market. Next: python -m predictor markets sync")
+        return
+    if a.id is None:
+        raise SystemExit("Give a claim id, or --all-matched")
     try:
         qid = claims.promote(conn, a.id, date(a.closes) if a.closes else None, a.text, a.criteria,
                              use_market=not a.no_market)
@@ -389,7 +395,8 @@ def main(argv=None):
     s.add_argument("--top", type=int, default=30)
     s.set_defaults(fn=cmd_claims_list)
     s = csub.add_parser("promote", help="turn a claim into a question; its forecasts go to the review queue")
-    s.add_argument("id", type=int)
+    s.add_argument("id", type=int, nargs="?")
+    s.add_argument("--all-matched", action="store_true", help="promote every claim that has a Polymarket market")
     s.add_argument("--closes", help="YYYY-MM-DD the answer became known (not needed with a matched market)")
     s.add_argument("--text", help="reword the question")
     s.add_argument("--criteria", help="how it resolves (default: the market's rules)")

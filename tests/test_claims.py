@@ -151,6 +151,22 @@ class Claims(unittest.TestCase):
         self.assertEqual(markets.unmatch_stale(self.conn), 1)
         self.assertIsNone(self.conn.execute("SELECT market_id FROM claims WHERE id = ?", (self.cut,)).fetchone()[0])
 
+    def test_promote_matched_takes_only_market_claims(self):
+        self.grouped()
+        self.conn.execute("INSERT INTO markets (id, source, question, end_date) VALUES ('m9', 'polymarket', 'Q?', ?)",
+                          (T0 + 86400,))
+        self.conn.execute("UPDATE claims SET market_id = 'm9', market_same = 1 WHERE id = ?", (self.cut,))
+        self.assertEqual(claims.promote_matched(self.conn, out=lambda *_: None), 1)
+        self.assertEqual(claims.promote_matched(self.conn, out=lambda *_: None), 0)  # already done
+        # A second claim on the same market joins the existing question.
+        other = self.conn.execute("INSERT INTO claims (question, tag, market_id, market_same) VALUES ('Q2', 'panel', 'm9', 1)").lastrowid
+        self.conn.execute("INSERT INTO comments (id, author, subreddit, body, created_utc, source) VALUES ('e1', 'eve', 'nba', '', ?, 'panel')", (T0,))
+        fid = self.conn.execute("INSERT INTO forecasts (comment_id, extractor, proposition, direction) VALUES ('e1', 'm', 'x', 'happens')").lastrowid
+        self.conn.execute("INSERT INTO claim_members (claim_id, forecast_id, stance) VALUES (?, ?, 'yes')", (other, fid))
+        self.assertEqual(claims.promote(self.conn, other), claims.promote(self.conn, self.cut) if False else
+                         self.conn.execute("SELECT question_id FROM claims WHERE id = ?", (self.cut,)).fetchone()[0])
+        self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM questions").fetchone()[0], 1)
+
     def test_parse_reads_outcomes(self):
         self.assertEqual(markets.parse(polymarket("x", "q", 1, closed=True, resolved=True))["outcome"], "yes")
         self.assertEqual(markets.parse(polymarket("x", "q", 0, closed=True, resolved=True))["outcome"], "no")
