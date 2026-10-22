@@ -229,6 +229,11 @@ For the project: second-term predictions are a good question bank. There are man
 ### E. Expand
 11. **Per-topic scores.** Videogames may be easier than politics: release dates, sales and review scores resolve on their own.
 12. **Bluesky**, then other platforms. Each account is scored on its own; cross-platform identity matching is out of scope.
+13. **Judgment questions** (your idea, 2026-10-22). Many predictions are vibes ("if Trump wins, things will suck hard") that no market or record can settle, and today the grouping step drops them (12-19% unresolvable, plus most "sweeping" ones). Instead, keep them as claims you resolve by your own judgment: YES / NO / partly, with a sentence of reasoning saved alongside.
+    - **A separate score.** Judgment results get their own column ("agrees with your read") and never mix into the Brier track record, so the feed can show both and you can tell which is which.
+    - **Guard against scoring agreement.** A score built on your judgment rewards people who see things the way you do, the echo chamber the feed is meant to avoid. To limit that: write each judgment question's resolution rule before seeing who predicted what or how many said yes, resolve them in a batch without usernames shown, and keep the weight of this score low in any ranking.
+    - **Conditionals:** "if Trump wins…" counts once the condition is met (it was), as for other conditional forecasts.
+    - Build: a `judgment` flag on claims (grouping keeps vibes claims instead of dropping them), a Judgment tab in the review workbook with the YES/NO/partly column and a reasoning column, and a separate score in `scores` and the feed.
 
 ## Subreddits
 
